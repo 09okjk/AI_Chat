@@ -310,9 +310,10 @@ const VoiceCall = () => {
   };
 
   return (
-    <div style={{ maxWidth: 600, margin: '24px auto', padding: 24, background: '#fff', borderRadius: 8 }}>
-      {/* 顶部状态栏 */}
-      <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
+    <div style={{ maxWidth: 700, margin: '40px auto', background: '#fff', borderRadius: 16, boxShadow: '0 4px 24px #e9e9e9', padding: '36px 32px' }}>
+      <h2 style={{ marginBottom: 28, textAlign: 'center', letterSpacing: 2, fontWeight: 700 }}>实时语音对话</h2>
+      {/* 控制区分组：主操作区 */}
+      <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center', marginBottom: 16 }}>
         <VoiceRecorder
           recording={recording}
           setRecording={setRecording}
@@ -329,17 +330,23 @@ const VoiceCall = () => {
         />
         <Select
           value={voice}
-          style={{ width: 120 }}
+          style={{ width: 130, fontWeight: 500 }}
           onChange={setVoice}
           options={VOICES.map(v => ({ value: v, label: v }))}
         />
         <AudioUpload onUpload={sendAudio} />
+      </div>
+      {/* 拖拽上传单独一行并居中 */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
         <AudioDropUpload onUpload={sendAudio} />
-        <Button size="small" onClick={simulateAIReply} style={{ marginLeft: 8 }}>模拟AI回复</Button>
+      </div>
+      {/* 辅助按钮区 */}
+      <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginBottom: 18 }}>
+        <Button size="small" onClick={simulateAIReply}>模拟AI回复</Button>
         <Button size="small" onClick={testAPI}>接口连通性测试</Button>
         <Button size="small" onClick={() => setShowLog(s => !s)}>{showLog ? '隐藏日志' : '显示日志'}</Button>
       </div>
-      <div style={{ borderTop: '1px solid #f0f0f0', margin: '16px 0 24px 0' }} />
+      <div style={{ borderTop: '1px solid #f0f0f0', margin: '18px 0 28px 0' }} />
       {/* AI回复区 */}
       <VoiceCallAIReply
         transcript={transcript}
@@ -348,7 +355,7 @@ const VoiceCall = () => {
         onPlayAudio={() => playPcmChunk(aiAudio, 24000)}
       />
       {/* 日志区 */}
-      <div style={{ marginTop: 32 }}>
+      <div style={{ marginTop: 36 }}>
         <AILogPanel logs={logs} envInfo={envInfo} showLog={showLog} />
       </div>
       {/* 录音弹窗 */}
