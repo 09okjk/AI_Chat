@@ -5,6 +5,8 @@ import { usePcmAudioPlayer, playPcmChunk } from '../hooks/usePcmAudioPlayer';
 import VoiceRecorder from './VoiceRecorder';
 import AudioUpload from './AudioUpload';
 import AILogPanel from './AILogPanel';
+import VoiceCallModal from './VoiceCallModal';
+import VoiceCallAIReply from './VoiceCallAIReply';
 import { PlayCircleOutlined, RedoOutlined, PauseCircleOutlined } from '@ant-design/icons';
 
 const MAX_RECORD_SECONDS = 30;
@@ -329,35 +331,25 @@ const VoiceCall = () => {
         <Button size="small" onClick={testAPI}>接口连通性测试</Button>
         <Button size="small" onClick={() => setShowLog(s => !s)}>{showLog ? '隐藏日志' : '显示日志'}</Button>
       </div>
-      <Typography.Paragraph style={{ marginTop: 24 }}>
-        <strong>AI回复：</strong> <span style={{ whiteSpace: 'pre-wrap' }}>{transcript}</span>
-        {aiThinking && <Spin size="small" style={{ marginLeft: 8 }} />}
-        {transcript && <Button size="small" style={{ marginLeft: 8 }} onClick={() => {navigator.clipboard.writeText(transcript); message.success('已复制AI回复');}}>复制</Button>}
-        {aiAudio && (
-          <Button icon={<PlayCircleOutlined />} size="small" style={{ marginLeft: 8 }} onClick={() => playPcmChunk(aiAudio, 24000)}>
-            播放AI语音
-          </Button>
-        )}
-      </Typography.Paragraph>
-      <Modal
+      <VoiceCallAIReply
+        transcript={transcript}
+        aiThinking={aiThinking}
+        aiAudio={aiAudio}
+        onPlayAudio={() => playPcmChunk(aiAudio, 24000)}
+      />
+      <VoiceCallModal
         open={showAudioModal}
-        title="录音完成"
+        audioUrl={audioUrl}
         onCancel={() => setShowAudioModal(false)}
-        footer={[
-          <Button key="retry" icon={<RedoOutlined />} onClick={() => { setShowAudioModal(false); setTimeout(() => toggleRecording(), 200); }}>重录</Button>,
-          <Button key="play" icon={<PlayCircleOutlined />} onClick={playRecordedAudio} disabled={!audioUrl}>试听</Button>,
-          <Button key="send" type="primary" icon={<PauseCircleOutlined />} onClick={sendAudio}>发送</Button>,
-        ]}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <audio src={audioUrl} controls style={{ width: '100%' }} />
-        </div>
-      </Modal>
+        onRetry={() => { setShowAudioModal(false); setTimeout(() => toggleRecording(), 200); }}
+        onPlay={playRecordedAudio}
+        onSend={sendAudio}
+      />
 
       {/* 调试日志区和环境信息 */}
       <AILogPanel logs={logs} envInfo={envInfo} showLog={showLog} />
     </div>
   );
-}
+};
 
 export default VoiceCall;
