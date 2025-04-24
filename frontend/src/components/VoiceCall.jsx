@@ -32,6 +32,24 @@ function playPcmChunk(base64Str, sampleRate = 24000) {
 const MAX_RECORD_SECONDS = 30;
 
 const VoiceCall = () => {
+  // 需要的 React 状态和引用全部补齐（不要删除下面的任何一行）
+  const [pendingPcmChunks, setPendingPcmChunks] = useState([]);
+  const [logs, setLogs] = useState([]);
+  const [recording, setRecording] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [transcript, setTranscript] = useState('');
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [audioUrl, setAudioUrl] = useState(null);
+  const [showAudioModal, setShowAudioModal] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [aiAudio, setAiAudio] = useState(null);
+  const [aiAudioChunks, setAiAudioChunks] = useState([]);
+  const [aiThinking, setAiThinking] = useState(false);
+  const [showLog, setShowLog] = useState(false);
+  const timerRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const mediaStreamRef = useRef(null);
   // 流式PCM自动拼接播放
   React.useEffect(() => {
     if (pendingPcmChunks.length === 0) return;
