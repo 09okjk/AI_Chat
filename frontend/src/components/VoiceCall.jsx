@@ -151,13 +151,46 @@ const VoiceCall = () => {
   };
 
   // 统一调用AI接口
+  // 简单语种检测（仅区分中/英）
+  function detectLang(text) {
+    if (!text) return null;
+    const zhReg = /[\u4e00-\u9fa5]/;
+    const enReg = /[a-zA-Z]/;
+    if (zhReg.test(text)) return 'zh';
+    if (enReg.test(text)) return 'en';
+    return null;
+  }
+
   const callAIWithAudio = async (base64Audio, extType) => {
+    // 按官方格式组织payload
+    const audioMsg = {
+      type: "input_audio",
+      input_audio: {
+        data: base64Audio,
+        format: extType
+      }
+    };
+    // 自定义文本内容（优先用 transcript，否则自动语种检测，否则默认）
+    let queryText = transcript;
+    if (!queryText) {
+      // 录音刚结束时 transcript 为空，尝试 fallback
+      queryText = '';
+    }
+    let lang = detectLang(queryText);
+    let prompt;
+    if (lang === 'zh') {
+      prompt = '请帮我识别这段中文语音内容';
+    } else if (lang === 'en') {
+      prompt = 'Please help me recognize this English audio.';
+    } else {
+      prompt = '请帮我识别音频内容';
+    }
+    const textMsg = { type: "text", text: queryText || prompt };
     await chatWithAI({
-      messages: [{ role: 'user', content: '[语音输入]' }],
+      messages: [{ role: 'user', content: [audioMsg, textMsg] }],
       model: 'qwen2.5-omni-7b',
       modalities: ['text', 'audio'],
       audio: { voice: 'Ethan', format: extType },
-      user_audio: base64Audio,
       stream: true
     }, (data) => {
       appendLog('收到AI流', data);

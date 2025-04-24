@@ -30,7 +30,7 @@ async def chat(request: Request):
     logger.info('收到 /api/chat 请求')
     data = await request.json()
     logger.info(f'请求内容: {data}')
-    # 构造百炼API请求体
+    # 构造百炼API请求体（messages 已支持官方音频输入格式，无需 user_audio 字段）
     payload = {
         "model": data.get("model", config.get("model", "qwen2.5-omni-7b")),
         "messages": data["messages"],
