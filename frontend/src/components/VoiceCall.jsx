@@ -7,6 +7,28 @@ import AILogPanel from './AILogPanel';
 import { PlayCircleOutlined, RedoOutlined, PauseCircleOutlined } from '@ant-design/icons';
 import { playBase64Audio } from '../utils/audio';
 
+// 播放裸PCM分片（24000Hz int16）
+function playPcmChunk(base64Str, sampleRate = 24000) {
+  if (!base64Str) return;
+  const audioCtx = window._pcmAudioCtx || (window._pcmAudioCtx = new (window.AudioContext || window.webkitAudioContext)());
+  // 解码base64为ArrayBuffer
+  const binary = atob(base64Str);
+  const buf = new ArrayBuffer(binary.length);
+  const view = new Uint8Array(buf);
+  for (let i = 0; i < binary.length; i++) view[i] = binary.charCodeAt(i);
+  // int16 PCM -> Float32 [-1,1]
+  const pcm16 = new Int16Array(buf);
+  const float32 = new Float32Array(pcm16.length);
+  for (let i = 0; i < pcm16.length; i++) float32[i] = pcm16[i] / 32768;
+  const audioBuffer = audioCtx.createBuffer(1, float32.length, sampleRate);
+  audioBuffer.getChannelData(0).set(float32);
+  const source = audioCtx.createBufferSource();
+  source.buffer = audioBuffer;
+  source.connect(audioCtx.destination);
+  source.start();
+}
+
+
 const MAX_RECORD_SECONDS = 30;
 
 const VoiceCall = () => {
@@ -204,9 +226,9 @@ const VoiceCall = () => {
         if (data.choices && Array.isArray(data.choices)) {
           for (const choice of data.choices) {
             if (choice.delta && choice.delta.audio) {
-              // 1. 播放每一片音频
+              // 1. 播放每一片音频（优先用PCM播放，彻底兼容裸PCM分片）
               if (typeof choice.delta.audio.data === 'string' && choice.delta.audio.data.length > 0) {
-                playBase64Audio(choice.delta.audio.data);
+                playPcmChunk(choice.delta.audio.data, 24000);
                 setAiAudio(choice.delta.audio.data); // 可选：记录最后一片
                 appendLog('AI音频片已播放');
               }
@@ -225,7 +247,7 @@ const VoiceCall = () => {
         }
         // 兼容 response.audio 形式（极少出现，保留）
         if (data.response && typeof data.response.audio === 'string' && data.response.audio.length > 100) {
-          playBase64Audio(data.response.audio);
+          playPcmChunk(data.response.audio, 24000);
           setAiAudio(data.response.audio);
           appendLog('AI音频已播放(response)');
         }
