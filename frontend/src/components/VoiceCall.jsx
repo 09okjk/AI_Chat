@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Button, Spin, Typography, Modal, message } from 'antd';
 import { chatWithAI } from '../utils/api';
-import { usePcmAudioPlayer } from '../hooks/usePcmAudioPlayer';
+import { usePcmAudioPlayer, playPcmChunk } from '../hooks/usePcmAudioPlayer';
 import VoiceRecorder from './VoiceRecorder';
 import AudioUpload from './AudioUpload';
 import AILogPanel from './AILogPanel';
