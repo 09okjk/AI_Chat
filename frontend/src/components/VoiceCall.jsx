@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Button, Spin, Typography, Modal, message } from 'antd';
 import { chatWithAI } from '../utils/api';
+import { usePcmAudioPlayer, playPcmChunk } from '../hooks/usePcmAudioPlayer';
 import VoiceRecorder from './VoiceRecorder';
 import AudioUpload from './AudioUpload';
 import AILogPanel from './AILogPanel';
@@ -50,19 +51,8 @@ const VoiceCall = () => {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const mediaStreamRef = useRef(null);
-  // 流式PCM自动拼接播放
-  React.useEffect(() => {
-    if (pendingPcmChunks.length === 0) return;
-    const timer = setInterval(() => {
-      setPendingPcmChunks(chunks => {
-        if (chunks.length === 0) return [];
-        const batch = chunks.join('');
-        playPcmChunk(batch, 24000);
-        return [];
-      });
-    }, 400); // 每400ms播放一次
-    return () => clearInterval(timer);
-  }, [pendingPcmChunks]);
+  // 流式PCM自动拼接播放（已抽离为hook）
+  usePcmAudioPlayer(pendingPcmChunks, setPendingPcmChunks);
 
   // 环境信息
   const envInfo = {
