@@ -17,7 +17,7 @@ const { Select } = require('antd');
 const VoiceCall = () => {
   // 音色选择，开源版支持 Ethan 和 Chelsie
   const VOICES = ["Ethan", "Chelsie"];
-  const [voice, setVoice] = useState("Ethan");
+  const [voice, setVoice] = useState("Chelsie");
   // 需要的 React 状态和引用全部补齐（不要删除下面的任何一行）
   const [pendingPcmChunks, setPendingPcmChunks] = useState([]);
   const [logs, setLogs] = useState([]);
