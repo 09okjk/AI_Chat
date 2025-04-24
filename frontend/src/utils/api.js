@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000/api';
+const API_BASE = process.env.REACT_APP_API_BASE || 'http://192.168.18.197:8016/api';
 
 export const chatWithAI = async (payload, onStream) => {
   // 使用fetch以支持流式响应
