@@ -27,7 +27,7 @@ async def chat(request: Request):
     data = await request.json()
     # 构造百炼API请求体
     payload = {
-        "model": data.get("model", "qwen2.5-omni-7b"),
+        "model": data.get("model", config.get("model", "qwen2.5-omni-7b")),
         "messages": data["messages"],
         "modalities": data.get("modalities", ["text"]),
         "audio": data.get("audio"),
