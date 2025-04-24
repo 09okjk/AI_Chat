@@ -35,58 +35,63 @@ const VoiceCall = () => {
   };
 
 
-  // 开始录音
-  const startRecording = async (e) => {
-    setTranscript('');
-    setAudioUrl(null);
-    setAiAudio(null);
-    setIsCancelling(false);
-    setRecordingTime(0);
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      Modal.error({
-        title: '浏览器不支持',
-        content: '当前浏览器不支持语音录制，请使用最新版 Chrome、Edge 或 Firefox，并确保在 https 或 localhost 环境下访问。'
-      });
-      return;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new window.MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-      mediaRecorder.ondataavailable = (e) => {
-        audioChunksRef.current.push(e.data);
-      };
-      mediaRecorder.onstop = () => {
-        clearInterval(timerRef.current);
-        setRecording(false);
-        setShowAudioModal(true);
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
-        setAudioUrl(URL.createObjectURL(audioBlob));
-      };
-      mediaRecorder.start();
-      setRecording(true);
-      timerRef.current = setInterval(() => {
-        setRecordingTime((t) => {
-          if (t + 1 >= MAX_RECORD_SECONDS) {
-            stopRecording();
-            message.info('已达到最长录音时长');
-            return t;
-          }
-          return t + 1;
+  // 切换录音（点击一次开始，再次点击结束）
+  const toggleRecording = async () => {
+    if (recording) {
+      stopRecording();
+    } else {
+      setTranscript('');
+      setAudioUrl(null);
+      setAiAudio(null);
+      setIsCancelling(false);
+      setRecordingTime(0);
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        Modal.error({
+          title: '浏览器不支持',
+          content: '当前浏览器不支持语音录制，请使用最新版 Chrome、Edge 或 Firefox，并确保在 https 或 localhost 环境下访问。'
         });
-      }, 1000);
-    } catch (err) {
-      setRecording(false);
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        Modal.error({ title: '未获得麦克风权限', content: '请检查浏览器和系统设置，允许访问麦克风。' });
-      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        Modal.error({ title: '未检测到麦克风设备', content: '请插入或启用麦克风。' });
-      } else {
-        Modal.error({ title: '麦克风访问失败', content: err.message });
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mediaRecorder = new window.MediaRecorder(stream);
+        mediaRecorderRef.current = mediaRecorder;
+        audioChunksRef.current = [];
+        mediaRecorder.ondataavailable = (e) => {
+          audioChunksRef.current.push(e.data);
+        };
+        mediaRecorder.onstop = () => {
+          clearInterval(timerRef.current);
+          setRecording(false);
+          setShowAudioModal(true);
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+          setAudioUrl(URL.createObjectURL(audioBlob));
+        };
+        mediaRecorder.start();
+        setRecording(true);
+        timerRef.current = setInterval(() => {
+          setRecordingTime((t) => {
+            if (t + 1 >= MAX_RECORD_SECONDS) {
+              stopRecording();
+              message.info('已达到最长录音时长');
+              return t;
+            }
+            return t + 1;
+          });
+        }, 1000);
+      } catch (err) {
+        setRecording(false);
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          Modal.error({ title: '未获得麦克风权限', content: '请检查浏览器和系统设置，允许访问麦克风。' });
+        } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+          Modal.error({ title: '未检测到麦克风设备', content: '请插入或启用麦克风。' });
+        } else {
+          Modal.error({ title: '麦克风访问失败', content: err.message });
+        }
       }
     }
   };
+;
 
   // 停止录音
   const stopRecording = () => {
@@ -225,15 +230,10 @@ const VoiceCall = () => {
         <Button
           type={recording ? 'default' : 'primary'}
           icon={<AudioOutlined />}
-          onMouseDown={startRecording}
-          onMouseUp={stopRecording}
-          onMouseLeave={stopRecording}
-          onTouchStart={startRecording}
-          onTouchEnd={stopRecording}
-          onTouchCancel={cancelRecording}
+          onClick={toggleRecording}
           disabled={loading}
           style={{ transition: 'all 0.2s', background: recording ? '#f5222d' : undefined, color: recording ? '#fff' : undefined }}
-        >{recording ? (isCancelling ? '已取消' : '松开结束') : '按住说话'}</Button>
+        >{recording ? '点击停止' : '点击开始录音'}</Button>
         {recording && <span style={{ color: '#f5222d', marginLeft: 8 }}>● 正在录音... {recordingTime}s</span>}
         {loading && <Spin style={{ marginLeft: 16 }} />}
         <Button size="small" onClick={simulateAIReply} style={{ marginLeft: 12 }}>模拟AI回复</Button>
