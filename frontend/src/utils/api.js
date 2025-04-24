@@ -4,7 +4,18 @@ const API_BASE = process.env.REACT_APP_API_BASE || 'http://192.168.18.197:8016/a
 
 export const chatWithAI = async (payload, onStream) => {
   try {
-    console.log('[api.js] chatWithAI 请求发起:', payload);
+    // 安全日志打印，避免 circular structure 错误
+    let safePayload = '';
+    try {
+      safePayload = JSON.stringify(payload);
+    } catch (e) {
+      if (typeof payload === 'object') {
+        safePayload = `[object ${payload.constructor && payload.constructor.name ? payload.constructor.name : 'Object'}]`;
+      } else {
+        safePayload = '[Unserializable payload]';
+      }
+    }
+    console.log('[api.js] chatWithAI 请求发起:', safePayload);
     const response = await fetch(`${API_BASE}/chat`, {
       method: 'POST',
       headers: {
