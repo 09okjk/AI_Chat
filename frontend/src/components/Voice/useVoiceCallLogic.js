@@ -168,13 +168,19 @@ export default function useVoiceCallLogic(state) {
 
   // AI接口调用
   async function callAIWithAudio(base64Audio, extType) {
+    // 若 base64Audio 以 data:audio/xxx;base64, 开头，只取逗号后面部分
+    let pureBase64 = base64Audio;
+    if (typeof pureBase64 === 'string' && pureBase64.startsWith('data:audio')) {
+      pureBase64 = pureBase64.split(',')[1];
+    }
     const audioMsg = {
       type: "input_audio",
       input_audio: {
-        data: base64Audio,
+        data: pureBase64,
         format: extType
       }
     };
+
     let queryText = transcript;
     if (!queryText) queryText = '';
     let lang = detectLang(queryText);
