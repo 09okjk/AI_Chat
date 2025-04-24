@@ -140,18 +140,12 @@ export default function useVoiceCallLogic(state) {
       callAIWithAudio(externalBase64, extType);
       return;
     }
-    if (!audioChunksRef.current || audioChunksRef.current.length === 0) {
-      setLoading(false);
-      setAiThinking(false);
-      message.warning('录音为空，请先说话再发送。');
-      return;
-    }
     const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
     const reader = new FileReader();
     reader.onload = function () {
       const base64Body = reader.result.split(',')[1];
-      // 强制只传递 string，避免 Blob、ArrayBuffer、Uint8Array 等类型误传
-      callAIWithAudio(String(base64Body), 'wav');
+      const fullBase64 = `data:audio/wav;base64,${base64Body}`;
+      callAIWithAudio(fullBase64, 'wav');
     };
     reader.readAsDataURL(audioBlob);
   }
@@ -168,27 +162,13 @@ export default function useVoiceCallLogic(state) {
 
   // AI接口调用
   async function callAIWithAudio(base64Audio, extType) {
-    // 若 base64Audio 以 data:audio/xxx;base64, 开头，只取逗号后面部分
-    let pureBase64 = base64Audio;
-    if (typeof pureBase64 === 'string' && pureBase64.startsWith('data:audio')) {
-      pureBase64 = pureBase64.split(',')[1];
-    }
-    if (typeof pureBase64 !== 'string') {
-      message.error('音频编码异常：base64数据不是字符串，无法发送');
-      console.error('input_audio.data 类型异常:', typeof pureBase64, pureBase64);
-      setLoading(false);
-      setAiThinking(false);
-      return;
-    }
     const audioMsg = {
       type: "input_audio",
       input_audio: {
-        data: pureBase64,
+        data: base64Audio,
         format: extType
       }
     };
-    console.log('input_audio.data typeof:', typeof pureBase64, pureBase64 ? pureBase64.slice(0, 32) : pureBase64);
-
     let queryText = transcript;
     if (!queryText) queryText = '';
     let lang = detectLang(queryText);
