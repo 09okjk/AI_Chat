@@ -24,7 +24,12 @@ config = get_config()
 # 文字/语音对话接口（流式转发）
 @app.post("/api/chat")
 async def chat(request: Request):
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger('ai_chat')
+    logger.info('收到 /api/chat 请求')
     data = await request.json()
+    logger.info(f'请求内容: {data}')
     # 构造百炼API请求体
     payload = {
         "model": data.get("model", config.get("model", "qwen2.5-omni-7b")),
@@ -38,15 +43,20 @@ async def chat(request: Request):
         "Authorization": f"Bearer {config['api_key']}",
         "Content-Type": "application/json"
     }
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        r = await client.post(
-            config["base_url"] + "/chat/completions",
-            json=payload,
-            headers=headers,
-            timeout=None
-        )
-        # 流式转发响应
-        return StreamingResponse(r.aiter_bytes(), media_type="application/json")
+    async def event_generator():
+        logger.info('开始流式输出...')
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            r = await client.post(
+                config["base_url"] + "/chat/completions",
+                json=payload,
+                headers=headers,
+            )
+            async for chunk in r.aiter_bytes():
+                logger.info(f'输出 chunk: {chunk}')
+                yield chunk
+        logger.info('流式输出完成')
+    logger.info('准备返回 StreamingResponse')
+    return StreamingResponse(event_generator(), media_type="application/json")
 
 # 视频上传接口（如需AI分析可扩展）
 @app.post("/api/upload_video")

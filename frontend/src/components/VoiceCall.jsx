@@ -112,7 +112,8 @@ const VoiceCall = () => {
     const reader = new FileReader();
     reader.onload = async () => {
       const base64Audio = reader.result.split(',')[1];
-      await chatWithAI({
+      console.log('[VoiceCall] 发送音频到AI...');
+await chatWithAI({
         messages: [{ role: 'user', content: '[语音输入]' }],
         model: 'qwen2.5-omni-7b',
         modalities: ['text', 'audio'],
@@ -120,14 +121,21 @@ const VoiceCall = () => {
         user_audio: base64Audio,
         stream: true
       }, (chunk) => {
+        console.log('[VoiceCall] 收到AI流:', chunk);
         try {
           const data = JSON.parse(chunk);
-          if (data.text) setTranscript(t => t + data.text);
+          if (data.text) {
+            setTranscript(t => t + data.text);
+            console.log('[VoiceCall] AI文本:', data.text);
+          }
           if (data.audio) {
             setAiAudio(data.audio);
             playBase64Audio(data.audio);
+            console.log('[VoiceCall] AI音频已播放');
           }
-        } catch {}
+        } catch (e) {
+          console.error('[VoiceCall] AI流解析失败:', e, chunk);
+        }
       });
       setLoading(false);
     };
