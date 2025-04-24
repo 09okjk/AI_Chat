@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Button, Typography, Upload, message } from 'antd';
 import { VideoCameraOutlined } from '@ant-design/icons';
 import { uploadVideo } from '../utils/api';
+import VoiceCall from './Voice/VoiceCall';
 
 const VideoCall = () => {
   const videoRef = useRef(null);

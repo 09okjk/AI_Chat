@@ -1,12 +1,12 @@
 import React from 'react';
-import { playPcmChunk } from '../hooks/usePcmAudioPlayer';
+import { playPcmChunk } from '../../hooks/usePcmAudioPlayer';
 import VoiceCallLayout from './VoiceCallLayout';
 import VoiceCallControls from './VoiceCallControls';
-import AudioDropUpload from './AudioDropUpload';
+import AudioDropUpload from '../AudioDropUpload';
 import VoiceCallToolbar from './VoiceCallToolbar';
 import VoiceCallAIReply from './VoiceCallAIReply';
 import VoiceCallModal from './VoiceCallModal';
-import AILogPanel from './AILogPanel';
+import AILogPanel from '../AILogPanel';
 import useVoiceCallState from './useVoiceCallState';
 import useVoiceCallLogic from './useVoiceCallLogic';
 
