@@ -18,7 +18,7 @@ export default function VoiceCallModal({
       footer={[
         <Button key="retry" icon={<RedoOutlined />} onClick={onRetry}>重录</Button>,
         <Button key="play" icon={<PlayCircleOutlined />} onClick={onPlay} disabled={!audioUrl}>试听</Button>,
-        <Button key="send" type="primary" icon={<PauseCircleOutlined />} onClick={onSend}>发送</Button>,
+        <Button key="send" type="primary" icon={<PauseCircleOutlined />} onClick={() => onSend()}>发送</Button>,
       ]}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
