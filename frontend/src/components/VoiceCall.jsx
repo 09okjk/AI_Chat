@@ -331,7 +331,7 @@ const VoiceCall = () => {
         {aiThinking && <Spin size="small" style={{ marginLeft: 8 }} />}
         {transcript && <Button size="small" style={{ marginLeft: 8 }} onClick={() => {navigator.clipboard.writeText(transcript); message.success('已复制AI回复');}}>复制</Button>}
         {aiAudio && (
-          <Button icon={<PlayCircleOutlined />} size="small" style={{ marginLeft: 8 }} onClick={() => playBase64Audio(aiAudio)}>
+          <Button icon={<PlayCircleOutlined />} size="small" style={{ marginLeft: 8 }} onClick={() => playPcmChunk(aiAudio, 24000)}>
             播放AI语音
           </Button>
         )}
