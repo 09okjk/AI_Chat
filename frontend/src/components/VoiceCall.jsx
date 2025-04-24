@@ -140,9 +140,24 @@ const VoiceCall = () => {
       }, (data) => {
         appendLog('收到AI流', data);
         try {
-          if (data.response && data.response.text) {
-            setTranscript(t => t + data.response.text);
-            appendLog('AI文本', data.response.text);
+          let text = '';
+          if (data.choices && Array.isArray(data.choices)) {
+            for (const choice of data.choices) {
+              if (choice.delta && typeof choice.delta === 'object') {
+                if (typeof choice.delta.text === 'string') {
+                  text += choice.delta.text;
+                }
+                if (choice.delta.audio && typeof choice.delta.audio.transcript === 'string') {
+                  text += choice.delta.audio.transcript;
+                }
+              }
+            }
+          }
+          if (!text && typeof data.text === 'string') text = data.text;
+          if (!text && data.response && typeof data.response.text === 'string') text = data.response.text;
+          if (text) {
+            setTranscript(t => t + text);
+            appendLog('AI文本', text);
           }
           if (data.response && data.response.audio) {
             setAiAudio(data.response.audio);

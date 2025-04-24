@@ -26,15 +26,20 @@ const ChatBox = () => {
       stream: true
     }, (data) => {
       let text = '';
-      if (typeof data === 'string') {
-        text = data;
-      } else if (data && typeof data === 'object') {
-        if (data.response && typeof data.response.text === 'string') {
-          text = data.response.text;
-        } else if (typeof data.text === 'string') {
-          text = data.text;
+      if (data.choices && Array.isArray(data.choices)) {
+        for (const choice of data.choices) {
+          if (choice.delta && typeof choice.delta === 'object') {
+            if (typeof choice.delta.text === 'string') {
+              text += choice.delta.text;
+            }
+            if (choice.delta.audio && typeof choice.delta.audio.transcript === 'string') {
+              text += choice.delta.audio.transcript;
+            }
+          }
         }
       }
+      if (!text && typeof data.text === 'string') text = data.text;
+      if (!text && data.response && typeof data.response.text === 'string') text = data.response.text;
       aiMsg.content += text;
       setMessages(msgs => {
         const copy = [...msgs];
