@@ -32,7 +32,12 @@ function playPcmChunk(base64Str, sampleRate = 24000) {
 
 const MAX_RECORD_SECONDS = 30;
 
+const { Select } = require('antd');
+
 const VoiceCall = () => {
+  // 音色选择，开源版支持 Ethan 和 Chelsie
+  const VOICES = ["Ethan", "Chelsie"];
+  const [voice, setVoice] = useState("Ethan");
   // 需要的 React 状态和引用全部补齐（不要删除下面的任何一行）
   const [pendingPcmChunks, setPendingPcmChunks] = useState([]);
   const [logs, setLogs] = useState([]);
@@ -222,7 +227,7 @@ const VoiceCall = () => {
       messages: [{ role: 'user', content: [audioMsg, textMsg] }],
       model: 'qwen2.5-omni-7b',
       modalities: ['text', 'audio'],
-      audio: { voice: 'Ethan', format: extType },
+      audio: { voice, format: extType },
       stream: true
     }, (data) => {
       appendLog('收到AI流', data);
@@ -335,6 +340,12 @@ const VoiceCall = () => {
           mediaRecorderRef={mediaRecorderRef}
           audioChunksRef={audioChunksRef}
           mediaStreamRef={mediaStreamRef}
+        />
+        <Select
+          value={voice}
+          style={{ width: 120 }}
+          onChange={setVoice}
+          options={VOICES.map(v => ({ value: v, label: v }))}
         />
         <AudioUpload onUpload={sendAudio} />
         <Button size="small" onClick={simulateAIReply} style={{ marginLeft: 12 }}>模拟AI回复</Button>
