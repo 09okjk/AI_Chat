@@ -14,6 +14,10 @@ const VoiceCall = () => {
   // 简单语音识别（可换为更强的API）
   const startRecording = async () => {
     setTranscript('');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      alert('当前浏览器不支持语音录制，请使用最新版 Chrome、Edge 或 Firefox，并确保在 https 或 localhost 环境下访问。');
+      return;
+    }
     setRecording(true);
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const mediaRecorder = new window.MediaRecorder(stream);
@@ -32,7 +36,6 @@ const VoiceCall = () => {
         // 这里假设后端支持音频base64输入，实际可扩展为音频转文字后再发给AI
         await chatWithAI({
           messages: [{ role: 'user', content: '[语音输入]' }],
-          model: 'qwen2.5-omni-7b',
           modalities: ['text', 'audio'],
           audio: { voice: 'Ethan', format: 'wav' },
           user_audio: base64Audio,
