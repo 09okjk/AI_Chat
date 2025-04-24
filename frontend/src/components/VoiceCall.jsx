@@ -21,6 +21,7 @@ const VoiceCall = () => {
   const timerRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
+  const mediaStreamRef = useRef(null); // 保存当前麦克风 stream
 
   // 环境信息
   const envInfo = {
@@ -54,6 +55,7 @@ const VoiceCall = () => {
       }
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaStreamRef.current = stream;
         const mediaRecorder = new window.MediaRecorder(stream);
         mediaRecorderRef.current = mediaRecorder;
         audioChunksRef.current = [];
@@ -91,7 +93,6 @@ const VoiceCall = () => {
       }
     }
   };
-;
 
   // 停止录音
   const stopRecording = () => {
@@ -104,6 +105,11 @@ const VoiceCall = () => {
       }
     } catch (e) {
       // 忽略多次 stop 报错
+    }
+    // 关闭麦克风
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current = null;
     }
   };
 
@@ -123,60 +129,69 @@ const VoiceCall = () => {
   };
 
 
-  // 发送录音到后端
-  const sendAudio = () => {
+  // 发送录音或上传音频到后端
+  const sendAudio = (externalBase64 = null, extType = 'wav') => {
     setShowAudioModal(false);
     setLoading(true);
     setAiThinking(true);
     setTranscript('');
     setAiAudio(null);
     appendLog('发送音频到AI');
+    if (externalBase64) {
+      callAIWithAudio(externalBase64, extType);
+      return;
+    }
     const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
     const reader = new FileReader();
-    reader.onload = async () => {
+    reader.onload = function () {
       const base64Audio = reader.result.split(',')[1];
-      await chatWithAI({
-        messages: [{ role: 'user', content: '[语音输入]' }],
-        model: 'qwen2.5-omni-7b',
-        modalities: ['text', 'audio'],
-        audio: { voice: 'Ethan', format: 'wav' },
-        user_audio: base64Audio,
-        stream: true
-      }, (data) => {
-        appendLog('收到AI流', data);
-        try {
-          let text = '';
-          if (data.choices && Array.isArray(data.choices)) {
-            for (const choice of data.choices) {
-              if (choice.delta && typeof choice.delta === 'object') {
-                if (typeof choice.delta.text === 'string') {
-                  text += choice.delta.text;
-                }
-                if (choice.delta.audio && typeof choice.delta.audio.transcript === 'string') {
-                  text += choice.delta.audio.transcript;
-                }
+      callAIWithAudio(base64Audio, 'wav');
+    };
+    reader.readAsDataURL(audioBlob);
+  };
+
+  // 统一调用AI接口
+  const callAIWithAudio = async (base64Audio, extType) => {
+    await chatWithAI({
+      messages: [{ role: 'user', content: '[语音输入]' }],
+      model: 'qwen2.5-omni-7b',
+      modalities: ['text', 'audio'],
+      audio: { voice: 'Ethan', format: extType },
+      user_audio: base64Audio,
+      stream: true
+    }, (data) => {
+      appendLog('收到AI流', data);
+      try {
+        let text = '';
+        if (data.choices && Array.isArray(data.choices)) {
+          for (const choice of data.choices) {
+            if (choice.delta && typeof choice.delta === 'object') {
+              if (typeof choice.delta.text === 'string') {
+                text += choice.delta.text;
+              }
+              if (choice.delta.audio && typeof choice.delta.audio.transcript === 'string') {
+                text += choice.delta.audio.transcript;
               }
             }
           }
-          if (!text && typeof data.text === 'string') text = data.text;
-          if (!text && data.response && typeof data.response.text === 'string') text = data.response.text;
-          if (text) {
-            setTranscript(t => t + text);
-            appendLog('AI文本', text);
-          }
-          if (data.response && data.response.audio) {
-            setAiAudio(data.response.audio);
-            playBase64Audio(data.response.audio);
-            appendLog('AI音频已播放');
-          }
-        } catch (e) {
-          appendLog('AI流解析失败', e);
         }
-      });
-      setLoading(false);
-      setAiThinking(false);
-    };
-    reader.readAsDataURL(audioBlob);
+        if (!text && typeof data.text === 'string') text = data.text;
+        if (!text && data.response && typeof data.response.text === 'string') text = data.response.text;
+        if (text) {
+          setTranscript(t => t + text);
+          appendLog('AI文本', text);
+        }
+        if (data.response && data.response.audio) {
+          setAiAudio(data.response.audio);
+          playBase64Audio(data.response.audio);
+          appendLog('AI音频已播放');
+        }
+      } catch (e) {
+        appendLog('AI流解析失败', e);
+      }
+    });
+    setLoading(false);
+    setAiThinking(false);
   };
 
   // 一键模拟AI回复（用于测试）
@@ -255,7 +270,7 @@ const VoiceCall = () => {
         title="录音完成"
         onCancel={() => setShowAudioModal(false)}
         footer={[
-          <Button key="retry" icon={<RedoOutlined />} onClick={() => { setShowAudioModal(false); setTimeout(() => startRecording(), 200); }}>重录</Button>,
+          <Button key="retry" icon={<RedoOutlined />} onClick={() => { setShowAudioModal(false); setTimeout(() => toggleRecording(), 200); }}>重录</Button>,
           <Button key="play" icon={<PlayCircleOutlined />} onClick={playRecordedAudio} disabled={!audioUrl}>试听</Button>,
           <Button key="send" type="primary" icon={<PauseCircleOutlined />} onClick={sendAudio}>发送</Button>,
         ]}
@@ -264,6 +279,30 @@ const VoiceCall = () => {
           <audio src={audioUrl} controls style={{ width: '100%' }} />
         </div>
       </Modal>
+      {/* 上传mp3/wav文件作为输入 */}
+      <div style={{ margin: '16px 0' }}>
+        <input
+          type="file"
+          accept=".mp3,.wav,audio/*"
+          style={{ marginRight: 8 }}
+          onChange={async e => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const ext = file.name.split('.').pop().toLowerCase();
+            if (!['mp3', 'wav'].includes(ext)) {
+              message.error('仅支持mp3/wav文件');
+              return;
+            }
+            const reader = new FileReader();
+            reader.onload = () => {
+              const base64 = reader.result.split(',')[1];
+              sendAudio(base64, ext);
+            };
+            reader.readAsDataURL(file);
+          }}
+        />
+        <span style={{ color: '#888' }}>或上传mp3/wav音频提问</span>
+      </div>
       {/* 调试日志区和环境信息 */}
       {showLog && (
         <div style={{ background: '#f6f6f6', marginTop: 24, borderRadius: 6, padding: 12, fontSize: 13 }}>
