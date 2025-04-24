@@ -144,8 +144,9 @@ const VoiceCall = () => {
     const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
     const reader = new FileReader();
     reader.onload = function () {
-      const base64Audio = reader.result.split(',')[1];
-      callAIWithAudio(base64Audio, 'wav');
+      const base64Body = reader.result.split(',')[1];
+      const fullBase64 = `data:audio/wav;base64,${base64Body}`;
+      callAIWithAudio(fullBase64, 'wav');
     };
     reader.readAsDataURL(audioBlob);
   };
