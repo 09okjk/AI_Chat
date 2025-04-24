@@ -200,28 +200,34 @@ const VoiceCall = () => {
       appendLog('收到AI流', data);
       try {
         let text = '';
+        // 边到边处理音频和文字分片
         if (data.choices && Array.isArray(data.choices)) {
           for (const choice of data.choices) {
-            if (choice.delta && typeof choice.delta === 'object') {
-              if (typeof choice.delta.text === 'string') {
-                text += choice.delta.text;
+            if (choice.delta && choice.delta.audio) {
+              // 1. 播放每一片音频
+              if (typeof choice.delta.audio.data === 'string' && choice.delta.audio.data.length > 0) {
+                playBase64Audio(choice.delta.audio.data);
+                setAiAudio(choice.delta.audio.data); // 可选：记录最后一片
+                appendLog('AI音频片已播放');
               }
-              if (choice.delta.audio && typeof choice.delta.audio.transcript === 'string') {
-                text += choice.delta.audio.transcript;
+              // 2. 展示每一片文字
+              if (typeof choice.delta.audio.transcript === 'string' && choice.delta.audio.transcript.length > 0) {
+                setTranscript(t => t + choice.delta.audio.transcript);
+                appendLog('AI文本片', choice.delta.audio.transcript);
               }
+            }
+            // 兼容旧结构的文本分片
+            if (choice.delta && typeof choice.delta.text === 'string') {
+              setTranscript(t => t + choice.delta.text);
+              appendLog('AI文本片', choice.delta.text);
             }
           }
         }
-        if (!text && typeof data.text === 'string') text = data.text;
-        if (!text && data.response && typeof data.response.text === 'string') text = data.response.text;
-        if (text) {
-          setTranscript(t => t + text);
-          appendLog('AI文本', text);
-        }
-        if (data.response && data.response.audio) {
-          setAiAudio(data.response.audio);
+        // 兼容 response.audio 形式（极少出现，保留）
+        if (data.response && typeof data.response.audio === 'string' && data.response.audio.length > 100) {
           playBase64Audio(data.response.audio);
-          appendLog('AI音频已播放');
+          setAiAudio(data.response.audio);
+          appendLog('AI音频已播放(response)');
         }
       } catch (e) {
         appendLog('AI流解析失败', e);
