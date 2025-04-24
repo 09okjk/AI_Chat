@@ -4,6 +4,7 @@ import { chatWithAI } from '../utils/api';
 import { usePcmAudioPlayer, playPcmChunk } from '../hooks/usePcmAudioPlayer';
 import VoiceRecorder from './VoiceRecorder';
 import AudioUpload from './AudioUpload';
+import AudioDropUpload from './AudioDropUpload';
 import AILogPanel from './AILogPanel';
 import VoiceCallModal from './VoiceCallModal';
 import VoiceCallAIReply from './VoiceCallAIReply';
@@ -312,12 +313,6 @@ const VoiceCall = () => {
     <div style={{ maxWidth: 600, margin: '24px auto', padding: 24, background: '#fff', borderRadius: 8 }}>
       {/* 顶部状态栏 */}
       <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
-        {recording && <span style={{ color: '#f5222d' }}>正在录音...</span>}
-        {loading && <span style={{ color: '#1890ff' }}>AI正在思考...</span>}
-        {aiThinking && !loading && <span style={{ color: '#1890ff' }}>AI正在输入...</span>}
-      </div>
-      <Typography.Title level={4}>实时语音对话</Typography.Title>
-      <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
         <VoiceRecorder
           recording={recording}
           setRecording={setRecording}
@@ -339,16 +334,24 @@ const VoiceCall = () => {
           options={VOICES.map(v => ({ value: v, label: v }))}
         />
         <AudioUpload onUpload={sendAudio} />
-        <Button size="small" onClick={simulateAIReply} style={{ marginLeft: 12 }}>模拟AI回复</Button>
+        <AudioDropUpload onUpload={sendAudio} />
+        <Button size="small" onClick={simulateAIReply} style={{ marginLeft: 8 }}>模拟AI回复</Button>
         <Button size="small" onClick={testAPI}>接口连通性测试</Button>
         <Button size="small" onClick={() => setShowLog(s => !s)}>{showLog ? '隐藏日志' : '显示日志'}</Button>
       </div>
+      <div style={{ borderTop: '1px solid #f0f0f0', margin: '16px 0 24px 0' }} />
+      {/* AI回复区 */}
       <VoiceCallAIReply
         transcript={transcript}
         aiThinking={aiThinking}
         aiAudio={aiAudio}
         onPlayAudio={() => playPcmChunk(aiAudio, 24000)}
       />
+      {/* 日志区 */}
+      <div style={{ marginTop: 32 }}>
+        <AILogPanel logs={logs} envInfo={envInfo} showLog={showLog} />
+      </div>
+      {/* 录音弹窗 */}
       <VoiceCallModal
         open={showAudioModal}
         audioUrl={audioUrl}
@@ -357,9 +360,6 @@ const VoiceCall = () => {
         onPlay={playRecordedAudio}
         onSend={sendAudio}
       />
-
-      {/* 调试日志区和环境信息 */}
-      <AILogPanel logs={logs} envInfo={envInfo} showLog={showLog} />
     </div>
   );
 };
