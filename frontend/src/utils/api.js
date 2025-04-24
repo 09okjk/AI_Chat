@@ -16,12 +16,41 @@ export const chatWithAI = async (payload, onStream) => {
       }
     }
     console.log('[api.js] chatWithAI 请求发起:', safePayload);
+    // 深拷贝并剔除循环引用对象，防止 circular structure 错误
+    function safeCopy(obj, seen = new WeakSet()) {
+      if (obj === null || typeof obj !== 'object') return obj;
+      if (seen.has(obj)) return undefined;
+      seen.add(obj);
+      if (Array.isArray(obj)) {
+        return obj.map(item => safeCopy(item, seen));
+      }
+      const result = {};
+      for (const key in obj) {
+        if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
+        const val = obj[key];
+        // 过滤 DOM、React 事件、FiberNode、stateNode 等
+        if ((val && typeof val === 'object' && (
+          val instanceof HTMLElement ||
+          (typeof val.type === 'string' && val.type.startsWith('on')) ||
+          key === '__reactFiber' ||
+          key === 'stateNode' ||
+          key === '_owner' ||
+          key === 'target' ||
+          key === 'currentTarget'))
+        ) {
+          continue;
+        }
+        result[key] = safeCopy(val, seen);
+      }
+      return result;
+    }
+    const safePayloadForPost = safeCopy(payload);
     const response = await fetch(`${API_BASE}/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(safePayloadForPost),
     });
     console.log('[api.js] chatWithAI 响应:', response);
     if (!response.body) {
