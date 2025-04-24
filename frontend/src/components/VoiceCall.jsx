@@ -1,10 +1,13 @@
 import React, { useState, useRef } from 'react';
-import { Button, Spin, Typography, Progress, Modal, message } from 'antd';
-import { AudioOutlined, PauseCircleOutlined, PlayCircleOutlined, RedoOutlined } from '@ant-design/icons';
+import { Button, Spin, Typography, Modal, message } from 'antd';
 import { chatWithAI } from '../utils/api';
+import VoiceRecorder from './VoiceRecorder';
+import AudioUpload from './AudioUpload';
+import AILogPanel from './AILogPanel';
+import { PlayCircleOutlined, RedoOutlined, PauseCircleOutlined } from '@ant-design/icons';
 import { playBase64Audio } from '../utils/audio';
 
-const MAX_RECORD_SECONDS = 30; // 最长录音时长
+const MAX_RECORD_SECONDS = 30;
 
 const VoiceCall = () => {
   const [recording, setRecording] = useState(false);
@@ -276,15 +279,21 @@ const VoiceCall = () => {
       </div>
       <Typography.Title level={4}>实时语音对话</Typography.Title>
       <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Button
-          type={recording ? 'default' : 'primary'}
-          icon={<AudioOutlined />}
-          onClick={toggleRecording}
-          disabled={loading}
-          style={{ transition: 'all 0.2s', background: recording ? '#f5222d' : undefined, color: recording ? '#fff' : undefined }}
-        >{recording ? '点击停止' : '点击开始录音'}</Button>
-        {recording && <span style={{ color: '#f5222d', marginLeft: 8 }}>● 正在录音... {recordingTime}s</span>}
-        {loading && <Spin style={{ marginLeft: 16 }} />}
+        <VoiceRecorder
+          recording={recording}
+          setRecording={setRecording}
+          setTranscript={setTranscript}
+          setAudioUrl={setAudioUrl}
+          setShowAudioModal={setShowAudioModal}
+          setAiAudio={setAiAudio}
+          setIsCancelling={setIsCancelling}
+          setRecordingTime={setRecordingTime}
+          timerRef={timerRef}
+          mediaRecorderRef={mediaRecorderRef}
+          audioChunksRef={audioChunksRef}
+          mediaStreamRef={mediaStreamRef}
+        />
+        <AudioUpload onUpload={sendAudio} />
         <Button size="small" onClick={simulateAIReply} style={{ marginLeft: 12 }}>模拟AI回复</Button>
         <Button size="small" onClick={testAPI}>接口连通性测试</Button>
         <Button size="small" onClick={() => setShowLog(s => !s)}>{showLog ? '隐藏日志' : '显示日志'}</Button>
@@ -313,40 +322,9 @@ const VoiceCall = () => {
           <audio src={audioUrl} controls style={{ width: '100%' }} />
         </div>
       </Modal>
-      {/* 上传mp3/wav文件作为输入 */}
-      <div style={{ margin: '16px 0' }}>
-        <input
-          type="file"
-          accept=".mp3,.wav,audio/*"
-          style={{ marginRight: 8 }}
-          onChange={async e => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const ext = file.name.split('.').pop().toLowerCase();
-            if (!['mp3', 'wav'].includes(ext)) {
-              message.error('仅支持mp3/wav文件');
-              return;
-            }
-            const reader = new FileReader();
-            reader.onload = () => {
-              const base64 = reader.result.split(',')[1];
-              sendAudio(base64, ext);
-            };
-            reader.readAsDataURL(file);
-          }}
-        />
-        <span style={{ color: '#888' }}>或上传mp3/wav音频提问</span>
-      </div>
+
       {/* 调试日志区和环境信息 */}
-      {showLog && (
-        <div style={{ background: '#f6f6f6', marginTop: 24, borderRadius: 6, padding: 12, fontSize: 13 }}>
-          <div style={{ marginBottom: 8 }}>【调试日志】</div>
-          <div style={{ maxHeight: 180, overflow: 'auto', fontFamily: 'monospace' }}>
-            {logs.length === 0 ? <div>暂无日志</div> : logs.map((l, i) => <div key={i}>{l}</div>)}
-          </div>
-          <div style={{ marginTop: 8, color: '#888' }}>【环境信息】API: {envInfo.apiBase} | Host: {envInfo.hostname} | {envInfo.protocol} | {envInfo.browser}</div>
-        </div>
-      )}
+      <AILogPanel logs={logs} envInfo={envInfo} showLog={showLog} />
     </div>
   );
 }
