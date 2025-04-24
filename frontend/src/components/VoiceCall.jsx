@@ -151,6 +151,7 @@ const VoiceCall = () => {
     setAiThinking(true);
     setTranscript('');
     setAiAudio(null);
+    setAiAudioChunks([]); // 清空音频分片，防止残留
     appendLog('发送音频到AI');
     if (externalBase64) {
       callAIWithAudio(externalBase64, extType);
@@ -240,6 +241,17 @@ const VoiceCall = () => {
           playPcmChunk(data.response.audio, 24000);
           setAiAudio(data.response.audio);
           appendLog('AI音频已播放(response)');
+        }
+        // 检查是否为流式结束（chunk里没有 delta/audio/data 了）
+        if (data.finish_reason === 'stop' || data.done === true) {
+          // 合并本轮所有分片
+          setAiAudioChunks(chunks => {
+            if (chunks.length > 0) {
+              const merged = chunks.join('');
+              setAiAudio(merged);
+            }
+            return [];
+          });
         }
       } catch (e) {
         appendLog('AI流解析失败', e);
