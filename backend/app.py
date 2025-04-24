@@ -1,6 +1,7 @@
 import yaml
 import httpx
-from fastapi import FastAPI, Request, Response, StreamingResponse
+from fastapi import FastAPI, Request, Response
+from starlette.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
