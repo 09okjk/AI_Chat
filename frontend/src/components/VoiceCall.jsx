@@ -53,8 +53,8 @@ const VoiceCall = () => {
   const [showAudioModal, setShowAudioModal] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [aiAudio, setAiAudio] = useState(null);
-const [aiAudioChunks, setAiAudioChunks] = useState([]); // 收集所有AI音频分片
-const [pendingPcmChunks, setPendingPcmChunks] = useState([]); // 缓存待播放的分片
+  const [aiAudioChunks, setAiAudioChunks] = useState([]); // 收集所有AI音频分片
+  const [pendingPcmChunks, setPendingPcmChunks] = useState([]); // 缓存待播放的分片
   const [aiThinking, setAiThinking] = useState(false);
   const [showLog, setShowLog] = useState(false);
   const [logs, setLogs] = useState([]);
