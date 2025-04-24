@@ -23,7 +23,19 @@ export default function useVoiceCallLogic(state) {
 
   // 日志追加
   function appendLog(msg, data) {
-    setLogs(logs => [...logs, `[${new Date().toLocaleTimeString()}] ${msg}` + (data !== undefined ? `: ${JSON.stringify(data)}` : '')]);
+    let safeData = '';
+    if (data !== undefined) {
+      try {
+        safeData = `: ${JSON.stringify(data)}`;
+      } catch (e) {
+        if (typeof data === 'object') {
+          safeData = `: [object ${data.constructor && data.constructor.name ? data.constructor.name : 'Object'}]`;
+        } else {
+          safeData = `: [Unserializable data]`;
+        }
+      }
+    }
+    setLogs(logs => [...logs, `[${new Date().toLocaleTimeString()}] ${msg}${safeData}`]);
   }
 
   // 切换录音（点击一次开始，再次点击结束）
