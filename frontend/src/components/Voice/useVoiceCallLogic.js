@@ -140,6 +140,12 @@ export default function useVoiceCallLogic(state) {
       callAIWithAudio(externalBase64, extType);
       return;
     }
+    if (!audioChunksRef.current || audioChunksRef.current.length === 0) {
+      setLoading(false);
+      setAiThinking(false);
+      message.warning('录音为空，请先说话再发送。');
+      return;
+    }
     const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
     const reader = new FileReader();
     reader.onload = function () {
