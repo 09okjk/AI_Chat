@@ -24,8 +24,18 @@ const ChatBox = () => {
       model: 'qwen2.5-omni-7b',
       modalities: ['text'],
       stream: true
-    }, (chunk) => {
-      aiMsg.content += chunk;
+    }, (data) => {
+      let text = '';
+      if (typeof data === 'string') {
+        text = data;
+      } else if (data && typeof data === 'object') {
+        if (data.response && typeof data.response.text === 'string') {
+          text = data.response.text;
+        } else if (typeof data.text === 'string') {
+          text = data.text;
+        }
+      }
+      aiMsg.content += text;
       setMessages(msgs => {
         const copy = [...msgs];
         copy[copy.length - 1] = { ...aiMsg };
