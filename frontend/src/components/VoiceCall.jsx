@@ -32,6 +32,19 @@ function playPcmChunk(base64Str, sampleRate = 24000) {
 const MAX_RECORD_SECONDS = 30;
 
 const VoiceCall = () => {
+  // 流式PCM自动拼接播放
+  React.useEffect(() => {
+    if (pendingPcmChunks.length === 0) return;
+    const timer = setInterval(() => {
+      setPendingPcmChunks(chunks => {
+        if (chunks.length === 0) return [];
+        const batch = chunks.join('');
+        playPcmChunk(batch, 24000);
+        return [];
+      });
+    }, 400); // 每400ms播放一次
+    return () => clearInterval(timer);
+  }, [pendingPcmChunks]);
   const [recording, setRecording] = useState(false);
   const [loading, setLoading] = useState(false);
   const [transcript, setTranscript] = useState('');
@@ -41,6 +54,7 @@ const VoiceCall = () => {
   const [isCancelling, setIsCancelling] = useState(false);
   const [aiAudio, setAiAudio] = useState(null);
 const [aiAudioChunks, setAiAudioChunks] = useState([]); // 收集所有AI音频分片
+const [pendingPcmChunks, setPendingPcmChunks] = useState([]); // 缓存待播放的分片
   const [aiThinking, setAiThinking] = useState(false);
   const [showLog, setShowLog] = useState(false);
   const [logs, setLogs] = useState([]);
@@ -229,9 +243,9 @@ const [aiAudioChunks, setAiAudioChunks] = useState([]); // 收集所有AI音频�
             if (choice.delta && choice.delta.audio) {
               // 1. 播放每一片音频（优先用PCM播放，彻底兼容裸PCM分片）
               if (typeof choice.delta.audio.data === 'string' && choice.delta.audio.data.length > 0) {
-                playPcmChunk(choice.delta.audio.data, 24000); // 自动播放每片
                 setAiAudioChunks(chunks => [...chunks, choice.delta.audio.data]);
-                appendLog('AI音频片已收集并自动播放');
+                setPendingPcmChunks(chunks => [...chunks, choice.delta.audio.data]); // 收到就缓存
+                appendLog('AI音频片已收集并缓存待播放');
               }
               // 2. 展示每一片文字
               if (typeof choice.delta.audio.transcript === 'string' && choice.delta.audio.transcript.length > 0) {
