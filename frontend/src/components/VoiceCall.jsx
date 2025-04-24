@@ -36,6 +36,7 @@ const VoiceCall = () => {
         // 这里假设后端支持音频base64输入，实际可扩展为音频转文字后再发给AI
         await chatWithAI({
           messages: [{ role: 'user', content: '[语音输入]' }],
+          model: 'qwen2.5-omni-7b',
           modalities: ['text', 'audio'],
           audio: { voice: 'Ethan', format: 'wav' },
           user_audio: base64Audio,
