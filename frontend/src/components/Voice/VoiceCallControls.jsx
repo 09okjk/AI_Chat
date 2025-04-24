@@ -19,6 +19,7 @@ export default function VoiceCallControls({
         setAiAudio={setAiAudio}
         setIsCancelling={setIsCancelling}
         setRecordingTime={setRecordingTime}
+        recordingTime={recordingTime}
         timerRef={timerRef}
         mediaRecorderRef={mediaRecorderRef}
         audioChunksRef={audioChunksRef}

@@ -6,7 +6,7 @@ const MAX_RECORD_SECONDS = 30;
 
 export default function VoiceRecorder({
   recording, setRecording, setTranscript, setAudioUrl, setShowAudioModal,
-  setAiAudio, setIsCancelling, setRecordingTime, timerRef, mediaRecorderRef, audioChunksRef, mediaStreamRef
+  setAiAudio, setIsCancelling, setRecordingTime, recordingTime, timerRef, mediaRecorderRef, audioChunksRef, mediaStreamRef
 }) {
   // 录音控制逻辑
   const toggleRecording = async () => {
