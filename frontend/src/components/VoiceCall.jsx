@@ -74,12 +74,15 @@ const VoiceCall = () => {
 
   // 停止录音
   const stopRecording = () => {
-    if (recording) {
-      setRecording(false);
-      clearInterval(timerRef.current);
+    if (!recording) return;
+    setRecording(false);
+    clearInterval(timerRef.current);
+    try {
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
         mediaRecorderRef.current.stop();
       }
+    } catch (e) {
+      // 忽略多次 stop 报错
     }
   };
 
@@ -88,13 +91,16 @@ const VoiceCall = () => {
     setIsCancelling(true);
     setRecording(false);
     clearInterval(timerRef.current);
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      mediaRecorderRef.current.stop();
-    }
+    try {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop();
+      }
+    } catch (e) {}
     setAudioUrl(null);
     setShowAudioModal(false);
     message.info('已取消录音');
   };
+
 
   // 发送录音到后端
   const sendAudio = () => {
@@ -145,7 +151,7 @@ const VoiceCall = () => {
           icon={<AudioOutlined />}
           onMouseDown={startRecording}
           onMouseUp={stopRecording}
-          onMouseLeave={recording ? cancelRecording : undefined}
+          onMouseLeave={stopRecording}
           onTouchStart={startRecording}
           onTouchEnd={stopRecording}
           onTouchCancel={cancelRecording}
