@@ -113,28 +113,27 @@ const VoiceCall = () => {
     reader.onload = async () => {
       const base64Audio = reader.result.split(',')[1];
       console.log('[VoiceCall] 发送音频到AI...');
-await chatWithAI({
+      await chatWithAI({
         messages: [{ role: 'user', content: '[语音输入]' }],
         model: 'qwen2.5-omni-7b',
         modalities: ['text', 'audio'],
         audio: { voice: 'Ethan', format: 'wav' },
         user_audio: base64Audio,
         stream: true
-      }, (chunk) => {
-        console.log('[VoiceCall] 收到AI流:', chunk);
+      }, (data) => {
+        console.log('[VoiceCall] 收到AI流:', data);
         try {
-          const data = JSON.parse(chunk);
-          if (data.text) {
-            setTranscript(t => t + data.text);
-            console.log('[VoiceCall] AI文本:', data.text);
+          if (data.response && data.response.text) {
+            setTranscript(t => t + data.response.text);
+            console.log('[VoiceCall] AI文本:', data.response.text);
           }
-          if (data.audio) {
-            setAiAudio(data.audio);
-            playBase64Audio(data.audio);
+          if (data.response && data.response.audio) {
+            setAiAudio(data.response.audio);
+            playBase64Audio(data.response.audio);
             console.log('[VoiceCall] AI音频已播放');
           }
         } catch (e) {
-          console.error('[VoiceCall] AI流解析失败:', e, chunk);
+          console.error('[VoiceCall] AI流解析失败:', e, data);
         }
       });
       setLoading(false);

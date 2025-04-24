@@ -34,25 +34,16 @@ export const chatWithAI = async (payload, onStream) => {
         for (let line of lines) {
           console.log('[api.js] chatWithAI 处理行:', line);
           line = line.trim();
+          // 兼容 data: ... 或纯 JSON 行
           if (line.startsWith('data:')) {
-            let jsonStr = line.replace(/^data:/, '').trim();
-            if (jsonStr === '[DONE]') continue;
-            try {
-              const data = JSON.parse(jsonStr);
-              if (data.choices && data.choices[0]) {
-                const delta = data.choices[0].delta;
-                if (delta) {
-                  if (delta.text) {
-                    onStream(delta.text);
-                  } else if (delta.audio && delta.audio.transcript) {
-                    onStream(delta.audio.transcript);
-                  }
-                }
-              }
-            } catch (error) {
-              console.error('[api.js] chatWithAI error:', error);
-              throw error;
-            }
+            line = line.replace(/^data:/, '').trim();
+          }
+          if (!line) continue;
+          try {
+            const data = JSON.parse(line);
+            onStream(data);
+          } catch (error) {
+            console.error('[api.js] chatWithAI error:', error, line);
           }
         }
       }
