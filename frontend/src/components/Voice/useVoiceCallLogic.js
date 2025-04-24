@@ -150,8 +150,8 @@ export default function useVoiceCallLogic(state) {
     const reader = new FileReader();
     reader.onload = function () {
       const base64Body = reader.result.split(',')[1];
-      // 只传递 base64Body 纯字符串，不带 data:audio/wav;base64, 前缀
-      callAIWithAudio(base64Body, 'wav');
+      // 强制只传递 string，避免 Blob、ArrayBuffer、Uint8Array 等类型误传
+      callAIWithAudio(String(base64Body), 'wav');
     };
     reader.readAsDataURL(audioBlob);
   }
@@ -173,6 +173,13 @@ export default function useVoiceCallLogic(state) {
     if (typeof pureBase64 === 'string' && pureBase64.startsWith('data:audio')) {
       pureBase64 = pureBase64.split(',')[1];
     }
+    if (typeof pureBase64 !== 'string') {
+      message.error('音频编码异常：base64数据不是字符串，无法发送');
+      console.error('input_audio.data 类型异常:', typeof pureBase64, pureBase64);
+      setLoading(false);
+      setAiThinking(false);
+      return;
+    }
     const audioMsg = {
       type: "input_audio",
       input_audio: {
@@ -180,6 +187,7 @@ export default function useVoiceCallLogic(state) {
         format: extType
       }
     };
+    console.log('input_audio.data typeof:', typeof pureBase64, pureBase64 ? pureBase64.slice(0, 32) : pureBase64);
 
     let queryText = transcript;
     if (!queryText) queryText = '';
