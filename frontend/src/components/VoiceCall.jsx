@@ -45,23 +45,6 @@ const VoiceCall = () => {
     }, 400); // 每400ms播放一次
     return () => clearInterval(timer);
   }, [pendingPcmChunks]);
-  const [recording, setRecording] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [transcript, setTranscript] = useState('');
-  const [recordingTime, setRecordingTime] = useState(0);
-  const [audioUrl, setAudioUrl] = useState(null);
-  const [showAudioModal, setShowAudioModal] = useState(false);
-  const [isCancelling, setIsCancelling] = useState(false);
-  const [aiAudio, setAiAudio] = useState(null);
-  const [aiAudioChunks, setAiAudioChunks] = useState([]); // 收集所有AI音频分片
-  const [pendingPcmChunks, setPendingPcmChunks] = useState([]); // 缓存待播放的分片
-  const [aiThinking, setAiThinking] = useState(false);
-  const [showLog, setShowLog] = useState(false);
-  const [logs, setLogs] = useState([]);
-  const timerRef = useRef(null);
-  const mediaRecorderRef = useRef(null);
-  const audioChunksRef = useRef([]);
-  const mediaStreamRef = useRef(null); // 保存当前麦克风 stream
 
   // 环境信息
   const envInfo = {
