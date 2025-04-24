@@ -229,8 +229,9 @@ const [aiAudioChunks, setAiAudioChunks] = useState([]); // 收集所有AI音频�
             if (choice.delta && choice.delta.audio) {
               // 1. 播放每一片音频（优先用PCM播放，彻底兼容裸PCM分片）
               if (typeof choice.delta.audio.data === 'string' && choice.delta.audio.data.length > 0) {
+                playPcmChunk(choice.delta.audio.data, 24000); // 自动播放每片
                 setAiAudioChunks(chunks => [...chunks, choice.delta.audio.data]);
-                appendLog('AI音频片已收集');
+                appendLog('AI音频片已收集并自动播放');
               }
               // 2. 展示每一片文字
               if (typeof choice.delta.audio.transcript === 'string' && choice.delta.audio.transcript.length > 0) {
