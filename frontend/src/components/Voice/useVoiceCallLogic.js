@@ -150,8 +150,8 @@ export default function useVoiceCallLogic(state) {
     const reader = new FileReader();
     reader.onload = function () {
       const base64Body = reader.result.split(',')[1];
-      const fullBase64 = `data:audio/wav;base64,${base64Body}`;
-      callAIWithAudio(fullBase64, 'wav');
+      // 只传递 base64Body 纯字符串，不带 data:audio/wav;base64, 前缀
+      callAIWithAudio(base64Body, 'wav');
     };
     reader.readAsDataURL(audioBlob);
   }
