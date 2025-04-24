@@ -1,34 +1,11 @@
 import React, { useState, useRef } from 'react';
 import { Button, Spin, Typography, Modal, message } from 'antd';
 import { chatWithAI } from '../utils/api';
-import { usePcmAudioPlayer, playPcmChunk } from '../hooks/usePcmAudioPlayer';
+import { usePcmAudioPlayer } from '../hooks/usePcmAudioPlayer';
 import VoiceRecorder from './VoiceRecorder';
 import AudioUpload from './AudioUpload';
 import AILogPanel from './AILogPanel';
 import { PlayCircleOutlined, RedoOutlined, PauseCircleOutlined } from '@ant-design/icons';
-import { playBase64Audio } from '../utils/audio';
-
-// 播放裸PCM分片（24000Hz int16）
-function playPcmChunk(base64Str, sampleRate = 24000) {
-  if (!base64Str) return;
-  const audioCtx = window._pcmAudioCtx || (window._pcmAudioCtx = new (window.AudioContext || window.webkitAudioContext)());
-  // 解码base64为ArrayBuffer
-  const binary = atob(base64Str);
-  const buf = new ArrayBuffer(binary.length);
-  const view = new Uint8Array(buf);
-  for (let i = 0; i < binary.length; i++) view[i] = binary.charCodeAt(i);
-  // int16 PCM -> Float32 [-1,1]
-  const pcm16 = new Int16Array(buf);
-  const float32 = new Float32Array(pcm16.length);
-  for (let i = 0; i < pcm16.length; i++) float32[i] = pcm16[i] / 32768;
-  const audioBuffer = audioCtx.createBuffer(1, float32.length, sampleRate);
-  audioBuffer.getChannelData(0).set(float32);
-  const source = audioCtx.createBufferSource();
-  source.buffer = audioBuffer;
-  source.connect(audioCtx.destination);
-  source.start();
-}
-
 
 const MAX_RECORD_SECONDS = 30;
 
