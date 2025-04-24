@@ -1,7 +1,7 @@
 import React from 'react';
 import VoiceRecorder from './VoiceRecorder';
 import { Select } from 'antd';
-import AudioUpload from './AudioUpload';
+import AudioUpload from '../AudioUpload';
 
 export default function VoiceCallControls({
   recording, setRecording, setTranscript, setAudioUrl, setShowAudioModal,

@@ -1,6 +1,6 @@
 import { message, Modal } from 'antd';
-import { chatWithAI } from '../utils/api';
-import { playPcmChunk } from '../hooks/usePcmAudioPlayer';
+import { chatWithAI } from '../../utils/api';
+import { playPcmChunk } from '../../hooks/usePcmAudioPlayer';
 
 export default function useVoiceCallLogic(state) {
   const {

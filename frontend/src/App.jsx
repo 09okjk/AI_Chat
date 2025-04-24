@@ -1,7 +1,7 @@
 import React from 'react';
 import { Tabs, Layout } from 'antd';
 import ChatBox from './components/ChatBox';
-import VoiceCall from './components/VoiceCall';
+import VoiceCall from './components/Voice/VoiceCall';
 import VideoCall from './components/VideoCall';
 import 'antd/dist/reset.css';
 
