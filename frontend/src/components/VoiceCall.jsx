@@ -40,6 +40,7 @@ const VoiceCall = () => {
   const [showAudioModal, setShowAudioModal] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [aiAudio, setAiAudio] = useState(null);
+const [aiAudioChunks, setAiAudioChunks] = useState([]); // 收集所有AI音频分片
   const [aiThinking, setAiThinking] = useState(false);
   const [showLog, setShowLog] = useState(false);
   const [logs, setLogs] = useState([]);
@@ -228,9 +229,8 @@ const VoiceCall = () => {
             if (choice.delta && choice.delta.audio) {
               // 1. 播放每一片音频（优先用PCM播放，彻底兼容裸PCM分片）
               if (typeof choice.delta.audio.data === 'string' && choice.delta.audio.data.length > 0) {
-                playPcmChunk(choice.delta.audio.data, 24000);
-                setAiAudio(choice.delta.audio.data); // 可选：记录最后一片
-                appendLog('AI音频片已播放');
+                setAiAudioChunks(chunks => [...chunks, choice.delta.audio.data]);
+                appendLog('AI音频片已收集');
               }
               // 2. 展示每一片文字
               if (typeof choice.delta.audio.transcript === 'string' && choice.delta.audio.transcript.length > 0) {
@@ -255,8 +255,17 @@ const VoiceCall = () => {
         appendLog('AI流解析失败', e);
       }
     });
-    setLoading(false);
-    setAiThinking(false);
+    // 流式结束后，拼接所有分片为完整PCM
+    setTimeout(() => {
+      if (aiAudioChunks.length > 0) {
+        const fullPcm = aiAudioChunks.join('');
+        setAiAudio(fullPcm);
+        setAiAudioChunks([]);
+        appendLog('AI音频已拼接并可播放');
+      }
+      setLoading(false);
+      setAiThinking(false);
+    }, 200); // 等待分片全部收集完毕
   };
 
   // 一键模拟AI回复（用于测试）
