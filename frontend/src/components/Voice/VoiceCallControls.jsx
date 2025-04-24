@@ -5,7 +5,7 @@ import AudioUpload from '../AudioUpload';
 
 export default function VoiceCallControls({
   recording, setRecording, setTranscript, setAudioUrl, setShowAudioModal,
-  setAiAudio, setIsCancelling, setRecordingTime, timerRef, mediaRecorderRef,
+  setAiAudio, setIsCancelling, setRecordingTime, recordingTime, timerRef, mediaRecorderRef,
   audioChunksRef, mediaStreamRef, voice, setVoice, VOICES, onUpload
 }) {
   return (

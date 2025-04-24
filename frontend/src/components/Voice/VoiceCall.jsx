@@ -16,25 +16,21 @@ const VoiceCall = () => {
   const logic = useVoiceCallLogic(state);
   const {
     VOICES, voice, setVoice,
-    pendingPcmChunks, setPendingPcmChunks,
-    logs, setLogs,
+    logs,
     recording, setRecording,
-    loading, setLoading,
     transcript, setTranscript,
     recordingTime, setRecordingTime,
     audioUrl, setAudioUrl,
     showAudioModal, setShowAudioModal,
     isCancelling, setIsCancelling,
     aiAudio, setAiAudio,
-    aiAudioChunks, setAiAudioChunks,
     aiThinking, setAiThinking,
     showLog, setShowLog,
     timerRef, mediaRecorderRef, audioChunksRef, mediaStreamRef
   } = state;
   const {
-    appendLog, toggleRecording, stopRecording, cancelRecording,
-    sendAudio, callAIWithAudio, detectLang,
-    playRecordedAudio, simulateAIReply, testAPI
+    toggleRecording, stopRecording, cancelRecording,
+    sendAudio, playRecordedAudio, simulateAIReply, testAPI
   } = logic;
 
   // 环境信息
