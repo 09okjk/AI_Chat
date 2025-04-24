@@ -15,9 +15,25 @@ const VoiceCall = () => {
   const [showAudioModal, setShowAudioModal] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [aiAudio, setAiAudio] = useState(null);
+  const [aiThinking, setAiThinking] = useState(false);
+  const [showLog, setShowLog] = useState(false);
+  const [logs, setLogs] = useState([]);
   const timerRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
+
+  // 环境信息
+  const envInfo = {
+    apiBase: process.env.REACT_APP_API_BASE,
+    hostname: window.location.hostname,
+    protocol: window.location.protocol,
+    browser: navigator.userAgent,
+  };
+
+  const appendLog = (msg, data) => {
+    setLogs(logs => [...logs, `[${new Date().toLocaleTimeString()}] ${msg}` + (data !== undefined ? `: ${JSON.stringify(data)}` : '')]);
+  };
+
 
   // 开始录音
   const startRecording = async (e) => {
@@ -106,13 +122,14 @@ const VoiceCall = () => {
   const sendAudio = () => {
     setShowAudioModal(false);
     setLoading(true);
+    setAiThinking(true);
     setTranscript('');
     setAiAudio(null);
+    appendLog('发送音频到AI');
     const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
     const reader = new FileReader();
     reader.onload = async () => {
       const base64Audio = reader.result.split(',')[1];
-      console.log('[VoiceCall] 发送音频到AI...');
       await chatWithAI({
         messages: [{ role: 'user', content: '[语音输入]' }],
         model: 'qwen2.5-omni-7b',
@@ -121,24 +138,55 @@ const VoiceCall = () => {
         user_audio: base64Audio,
         stream: true
       }, (data) => {
-        console.log('[VoiceCall] 收到AI流:', data);
+        appendLog('收到AI流', data);
         try {
           if (data.response && data.response.text) {
             setTranscript(t => t + data.response.text);
-            console.log('[VoiceCall] AI文本:', data.response.text);
+            appendLog('AI文本', data.response.text);
           }
           if (data.response && data.response.audio) {
             setAiAudio(data.response.audio);
             playBase64Audio(data.response.audio);
-            console.log('[VoiceCall] AI音频已播放');
+            appendLog('AI音频已播放');
           }
         } catch (e) {
-          console.error('[VoiceCall] AI流解析失败:', e, data);
+          appendLog('AI流解析失败', e);
         }
       });
       setLoading(false);
+      setAiThinking(false);
     };
     reader.readAsDataURL(audioBlob);
+  };
+
+  // 一键模拟AI回复（用于测试）
+  const simulateAIReply = () => {
+    setTranscript('');
+    setAiAudio(null);
+    setAiThinking(true);
+    setTimeout(() => {
+      setTranscript('这是模拟的AI回复内容。');
+      setAiThinking(false);
+      appendLog('模拟AI文本回复');
+    }, 1200);
+    setTimeout(() => {
+      setAiAudio(null);
+      appendLog('模拟AI音频回复');
+    }, 1800);
+  };
+
+  // 一键测试接口连通性
+  const testAPI = async () => {
+    appendLog('测试API连通性...');
+    try {
+      const res = await fetch(envInfo.apiBase + '/ping');
+      const data = await res.json();
+      message.success('API连通性正常: ' + JSON.stringify(data));
+      appendLog('API连通性正常', data);
+    } catch (e) {
+      message.error('API连通性异常: ' + e.message);
+      appendLog('API连通性异常', e.message);
+    }
   };
 
   // 试听录音
@@ -151,6 +199,12 @@ const VoiceCall = () => {
 
   return (
     <div style={{ maxWidth: 600, margin: '24px auto', padding: 24, background: '#fff', borderRadius: 8 }}>
+      {/* 顶部状态栏 */}
+      <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
+        {recording && <span style={{ color: '#f5222d' }}>正在录音...</span>}
+        {loading && <span style={{ color: '#1890ff' }}>AI正在思考...</span>}
+        {aiThinking && !loading && <span style={{ color: '#1890ff' }}>AI正在输入...</span>}
+      </div>
       <Typography.Title level={4}>实时语音对话</Typography.Title>
       <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
         <Button
@@ -167,9 +221,14 @@ const VoiceCall = () => {
         >{recording ? (isCancelling ? '已取消' : '松开结束') : '按住说话'}</Button>
         {recording && <span style={{ color: '#f5222d', marginLeft: 8 }}>● 正在录音... {recordingTime}s</span>}
         {loading && <Spin style={{ marginLeft: 16 }} />}
+        <Button size="small" onClick={simulateAIReply} style={{ marginLeft: 12 }}>模拟AI回复</Button>
+        <Button size="small" onClick={testAPI}>接口连通性测试</Button>
+        <Button size="small" onClick={() => setShowLog(s => !s)}>{showLog ? '隐藏日志' : '显示日志'}</Button>
       </div>
       <Typography.Paragraph style={{ marginTop: 24 }}>
-        <strong>AI回复：</strong> {transcript}
+        <strong>AI回复：</strong> <span style={{ whiteSpace: 'pre-wrap' }}>{transcript}</span>
+        {aiThinking && <Spin size="small" style={{ marginLeft: 8 }} />}
+        {transcript && <Button size="small" style={{ marginLeft: 8 }} onClick={() => {navigator.clipboard.writeText(transcript); message.success('已复制AI回复');}}>复制</Button>}
         {aiAudio && (
           <Button icon={<PlayCircleOutlined />} size="small" style={{ marginLeft: 8 }} onClick={() => playBase64Audio(aiAudio)}>
             播放AI语音
@@ -190,8 +249,18 @@ const VoiceCall = () => {
           <audio src={audioUrl} controls style={{ width: '100%' }} />
         </div>
       </Modal>
+      {/* 调试日志区和环境信息 */}
+      {showLog && (
+        <div style={{ background: '#f6f6f6', marginTop: 24, borderRadius: 6, padding: 12, fontSize: 13 }}>
+          <div style={{ marginBottom: 8 }}>【调试日志】</div>
+          <div style={{ maxHeight: 180, overflow: 'auto', fontFamily: 'monospace' }}>
+            {logs.length === 0 ? <div>暂无日志</div> : logs.map((l, i) => <div key={i}>{l}</div>)}
+          </div>
+          <div style={{ marginTop: 8, color: '#888' }}>【环境信息】API: {envInfo.apiBase} | Host: {envInfo.hostname} | {envInfo.protocol} | {envInfo.browser}</div>
+        </div>
+      )}
     </div>
   );
-};
+}
 
 export default VoiceCall;
