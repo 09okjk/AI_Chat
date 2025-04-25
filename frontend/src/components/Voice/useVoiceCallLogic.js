@@ -140,6 +140,7 @@ export default function useVoiceCallLogic(state) {
     if (audioUrlOrBase64) {
       // 如果传的是 audioUrl (Blob URL)，先 fetch 转为 Blob
       if (audioUrlOrBase64.startsWith('blob:')) {
+        appendLog('音频是 Blob URL，转换为 Blob');
         fetch(audioUrlOrBase64)
           .then(res => res.blob())
           .then(blob => {
@@ -159,7 +160,7 @@ export default function useVoiceCallLogic(state) {
         return;
       }
     }
-      
+
     const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
     const reader = new FileReader();
     reader.onload = function () {
