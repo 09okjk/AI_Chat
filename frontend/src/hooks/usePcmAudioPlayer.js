@@ -1,10 +1,13 @@
 import { useEffect } from 'react';
 
-// 播放裸PCM分片（24000Hz int16）
-// 全局播放指针和播放节点列表，确保PCM片段串行播放和可中断
+// 全局播放指针，确保PCM片段串行播放
 if (!window._pcmPlayCursor) window._pcmPlayCursor = 0;
-if (!window._pcmSourceNodes) window._pcmSourceNodes = [];
+// 存储所有正在播放的audio source节点，便于停止
+if (!window._activeSources) window._activeSources = new Set();
 
+/**
+ * 播放一个PCM片段
+ */
 export function playPcmChunk(base64Str, sampleRate = 24000) {
   if (!base64Str) return;
   const audioCtx = window._pcmAudioCtx || (window._pcmAudioCtx = new (window.AudioContext || window.webkitAudioContext)());
@@ -23,32 +26,46 @@ export function playPcmChunk(base64Str, sampleRate = 24000) {
   source.buffer = audioBuffer;
   source.connect(audioCtx.destination);
 
+  // 添加到活跃源列表，便于停止时管理
+  window._activeSources.add(source);
+  
+  // 清理函数，播放结束后移除源
+  source.onended = () => {
+    window._activeSources.delete(source);
+  };
+
   // 串行排队播放，避免重叠
   if (!window._pcmPlayCursor || window._pcmPlayCursor < audioCtx.currentTime) {
     window._pcmPlayCursor = audioCtx.currentTime;
   }
   source.start(window._pcmPlayCursor);
-  // 记录当前播放节点，便于stop时终止
-  window._pcmSourceNodes.push(source);
-  // 自动清理已播放节点
-  source.onended = () => {
-    window._pcmSourceNodes = window._pcmSourceNodes.filter(n => n !== source);
-  };
   window._pcmPlayCursor += audioBuffer.duration;
+  
+  return source; // 返回源对象，方便外部再次引用
 }
 
-// 停止所有未播放和正在播放的PCM音频
-export function stopPCMPlayback() {
-  if (window._pcmSourceNodes) {
-    window._pcmSourceNodes.forEach(node => {
-      try { node.stop && node.stop(); } catch(e) {}
+/**
+ * 停止所有正在播放的音频
+ */
+export function stopAllAudio() {
+  // 停止所有活跃的音频源
+  if (window._activeSources) {
+    window._activeSources.forEach(source => {
+      try {
+        source.stop();
+        source.disconnect();
+      } catch (e) {
+        // 忽略可能的错误
+      }
     });
-    window._pcmSourceNodes = [];
+    window._activeSources.clear();
   }
-  window._pcmPlayCursor = 0;
+  
+  // 重置播放指针，使下一个音频立即开始
+  if (window._pcmAudioCtx) {
+    window._pcmPlayCursor = window._pcmAudioCtx.currentTime;
+  }
 }
-
-
 
 // 用于流式PCM自动拼接播放
 export function usePcmAudioPlayer(pendingPcmChunks, setPendingPcmChunks) {

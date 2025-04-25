@@ -1,14 +1,9 @@
 import React from 'react';
 import { message, Modal } from 'antd';
 import { chatWithAI } from '../../utils/api';
-import { playPcmChunk } from '../../hooks/usePcmAudioPlayer';
+import { playPcmChunk, stopAllAudio } from '../../hooks/usePcmAudioPlayer';
 
-// 新增: 支持外部事件回调
-export default function useVoiceCallLogic(state, {
-  onAIPCMChunk,
-  onAIPlaybackStart,
-  onAIPlaybackEnd
-} = {}) {
+export default function useVoiceCallLogic(state) {
   const {
     VOICES, voice, setVoice,
     pendingPcmChunks, setPendingPcmChunks,
@@ -200,21 +195,16 @@ export default function useVoiceCallLogic(state, {
     const MIN_BUFFER = 8;  // 播放前至少缓冲8个片段（可根据体验调整）
     const MAX_MERGE = 12;  // 单次最多合并播放12个片段
     const MIN_MERGE = 4;   // 单次最少合并4个片段
-    let isFirstPlay = true;
     async function decodeWorker() {
       while (!cancelled) {
         // 1. 如果缓冲区足够，合并一批片段播放
         if (audioInputQueue.current.length >= MIN_BUFFER) {
           let mergeCount = Math.min(audioInputQueue.current.length, MAX_MERGE);
           for (let i = 0; i < mergeCount; i++) {
-            const chunk = audioInputQueue.current.shift();
-            chunkBuffer.current.push(chunk);
-            if (onAIPCMChunk) onAIPCMChunk(chunk);
+            chunkBuffer.current.push(audioInputQueue.current.shift());
           }
           const merged = chunkBuffer.current.join('');
           try {
-            if (isFirstPlay && onAIPlaybackStart) onAIPlaybackStart();
-            isFirstPlay = false;
             await playPcmChunk(merged, 24000);
             appendLog(`动态缓冲区合并${mergeCount}段已播放`);
           } catch (e) {
@@ -233,14 +223,10 @@ export default function useVoiceCallLogic(state, {
           await new Promise(r => setTimeout(r, 100));
           if (audioInputQueue.current.length > 0) {
             while (audioInputQueue.current.length > 0) {
-              const chunk = audioInputQueue.current.shift();
-              chunkBuffer.current.push(chunk);
-              if (onAIPCMChunk) onAIPCMChunk(chunk);
+              chunkBuffer.current.push(audioInputQueue.current.shift());
             }
             const merged = chunkBuffer.current.join('');
             try {
-              if (isFirstPlay && onAIPlaybackStart) onAIPlaybackStart();
-              isFirstPlay = false;
               await playPcmChunk(merged, 24000);
               appendLog('动态缓冲区末尾残留片段已播放');
             } catch (e) {
@@ -255,13 +241,8 @@ export default function useVoiceCallLogic(state, {
       }
     }
     decodeWorker();
-    // 监听AI流播放结束
-    return () => {
-      cancelled = true;
-      decodeWorkerRunning.current = false;
-      if (onAIPlaybackEnd) onAIPlaybackEnd();
-    };
-  }, [onAIPCMChunk, onAIPlaybackStart, onAIPlaybackEnd]);
+    return () => { cancelled = true; decodeWorkerRunning.current = false; };
+  }, []);
 
 
 
@@ -349,10 +330,28 @@ export default function useVoiceCallLogic(state, {
     appendLog('接口连通性测试', { apiBase: process.env.REACT_APP_API_BASE });
     message.success('接口连通性测试成功！');
   }
+  
+  // 停止AI回复 - 清空队列并停止音频播放
+  function stopAIReply() {
+    // 清空音频输入队列
+    if (audioInputQueue.current && audioInputQueue.current.length > 0) {
+      appendLog(`清空音频队列，清除${audioInputQueue.current.length}个片段`);
+      audioInputQueue.current = [];
+    }
+    
+    // 停止所有正在播放的音频
+    stopAllAudio();
+    appendLog('已停止AI音频回复');
+    message.success('已停止AI回复');
+    
+    // 重置状态
+    setAiThinking(false);
+    setLoading(false);
+  }
 
   return {
     appendLog, toggleRecording, stopRecording, cancelRecording,
     sendAudio, callAIWithAudio, detectLang,
-    playRecordedAudio, simulateAIReply, testAPI
+    playRecordedAudio, simulateAIReply, testAPI, stopAIReply
   };
 }

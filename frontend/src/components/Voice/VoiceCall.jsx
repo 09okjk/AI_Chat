@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
-import { playPcmChunk, stopPCMPlayback } from '../../hooks/usePcmAudioPlayer';
-import VoiceVisualizer from './VoiceVisualizer';
+import React from 'react';
+import { playPcmChunk } from '../../hooks/usePcmAudioPlayer';
 import VoiceCallLayout from './VoiceCallLayout';
 import VoiceCallControls from './VoiceCallControls';
 import AudioDropUpload from '../AudioDropUpload';
@@ -14,16 +13,7 @@ import useVoiceCallLogic from './useVoiceCallLogic';
 const VoiceCall = () => {
   // 统一管理所有状态
   const state = useVoiceCallState('Chelsie');
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [aiAudioBuffer, setAiAudioBuffer] = useState([]); // 用于保存AI完整音频
-
-  // 联动AI语音流事件
-  const logic = useVoiceCallLogic(state, {
-    onAIPCMChunk: chunk => setAiAudioBuffer(prev => [...prev, chunk]),
-    onAIPlaybackStart: () => setIsPlaying(true),
-    onAIPlaybackEnd: () => setIsPlaying(false)
-  });
-
+  const logic = useVoiceCallLogic(state);
   const {
     VOICES, voice, setVoice,
     logs,
@@ -40,7 +30,7 @@ const VoiceCall = () => {
   } = state;
   const {
     toggleRecording, stopRecording, cancelRecording,
-    sendAudio, playRecordedAudio, simulateAIReply, testAPI
+    sendAudio, playRecordedAudio, simulateAIReply, testAPI, stopAIReply
   } = logic;
 
   // 环境信息
@@ -51,51 +41,9 @@ const VoiceCall = () => {
     browser: navigator.userAgent,
   };
 
-  // 停止AI语音播放
-  const handleStopPlayback = () => {
-    stopPCMPlayback();
-    setIsPlaying(false);
-  };
-
-  // 下载AI完整语音
-  const handleDownloadAIAudio = () => {
-    if (!aiAudioBuffer.length) return;
-    // 合并base64，转为blob
-    const mergedBase64 = aiAudioBuffer.join('');
-    const byteString = atob(mergedBase64);
-    const ab = new ArrayBuffer(byteString.length);
-    const ia = new Uint8Array(ab);
-    for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
-    const blob = new Blob([ab], { type: 'audio/wav' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'ai_reply.wav';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  // AI语音播放时收集buffer
-  const handleAIChunk = (chunk) => {
-    setAiAudioBuffer(prev => [...prev, chunk]);
-  };
-
   return (
     <VoiceCallLayout>
       <h2 style={{ marginBottom: 28, textAlign: 'center', letterSpacing: 2, fontWeight: 700 }}>实时语音对话</h2>
-      {/* 音律动画 */}
-      <div style={{ textAlign: 'center', marginBottom: 8 }}>
-        <VoiceVisualizer isPlaying={isPlaying} />
-      </div>
-      {/* 播放/停止/下载按钮 */}
-      <div style={{ textAlign: 'center', marginBottom: 16 }}>
-        {isPlaying ? (
-          <button onClick={handleStopPlayback} style={{ marginRight: 8 }}>停止播放</button>
-        ) : null}
-        {aiAudioBuffer.length > 0 && (
-          <button onClick={handleDownloadAIAudio}>下载AI语音</button>
-        )}
-      </div>
       <VoiceCallControls
         recording={recording}
         setRecording={setRecording}
@@ -124,12 +72,33 @@ const VoiceCall = () => {
         onToggleLog={() => setShowLog(s => !s)}
       />
       <div style={{ borderTop: '1px solid #f0f0f0', margin: '18px 0 28px 0' }} />
-      <VoiceCallAIReply
-        transcript={transcript}
-        aiThinking={aiThinking}
-        aiAudio={aiAudio}
-        onPlayAudio={() => playPcmChunk(aiAudio, 24000)}
-      />
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <VoiceCallAIReply
+          transcript={transcript}
+          aiThinking={aiThinking}
+          aiAudio={aiAudio}
+          onPlayAudio={() => playPcmChunk(aiAudio, 24000)}
+        />
+        {/* 停止按钮 - 仅在AI正在思考或返回有内容时显示 */}
+        {(aiThinking || transcript) && (
+          <button 
+            onClick={stopAIReply}
+            style={{
+              marginTop: 16,
+              padding: '8px 16px',
+              backgroundColor: '#ff4d4f',
+              color: 'white',
+              border: 'none',
+              borderRadius: 4,
+              cursor: 'pointer',
+              fontSize: 14,
+              fontWeight: 500
+            }}
+          >
+            停止AI回复
+          </button>
+        )}
+      </div>
       <VoiceCallModal
         open={showAudioModal}
         audioUrl={audioUrl}
