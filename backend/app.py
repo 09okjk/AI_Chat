@@ -7,33 +7,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
-# 自定义 SSE 响应类，专为流式输出设计
-class SSEResponse(Response):
-    media_type = "text/event-stream"
-    
-    def __init__(self, generator, status_code=200):
-        super().__init__(content=None, status_code=status_code)
-        self.generator = generator
-        
-    async def __call__(self, scope, receive, send):
-        await send({
-            "type": "http.response.start",
-            "status": self.status_code,
-            "headers": [
-                [b"content-type", b"text/event-stream"],
-                [b"cache-control", b"no-cache"],
-                [b"connection", b"keep-alive"],
-                [b"transfer-encoding", b"chunked"],
-            ],
-        })
-        
-        async for chunk in self.generator:
-            if not isinstance(chunk, bytes):
-                chunk = chunk.encode("utf-8") if isinstance(chunk, str) else b""
-            await send({"type": "http.response.body", "body": chunk, "more_body": True})
-            await asyncio.sleep(0)
-        
-        await send({"type": "http.response.body", "body": b"", "more_body": False})
+# 定义一些常量和工具函数
+def add_cors_headers(headers):
+    """Add CORS headers to a dictionary."""
+    headers["Access-Control-Allow-Origin"] = "*"
+    headers["Access-Control-Allow-Methods"] = "*"
+    headers["Access-Control-Allow-Headers"] = "*"
+    return headers
 
 # 允许前端跨域访问
 app.add_middleware(
@@ -60,61 +40,67 @@ async def chat(request: Request):
     data = await request.json()
     logger.info(f'请求内容: {data}')
     
-    # 完全绕过 FastAPI 响应机制，直接使用 ASGI 接口
-    async def app_endpoint(scope, receive, send):
-        # 发送 HTTP 200 和头部
-        await send({
-            "type": "http.response.start",
-            "status": 200,
-            "headers": [
-                (b"content-type", b"text/event-stream"),
-                (b"cache-control", b"no-cache"),
-                (b"connection", b"keep-alive"),
-            ],
-        })
-        
-        # 构造百炼API请求
-        payload = {
-            "model": data.get("model", config.get("model", "qwen2.5-omni-7b")),
-            "messages": data["messages"],
-            "modalities": data.get("modalities", ["text"]),
-            "audio": data.get("audio"),
-            "stream": True,
-            "stream_options": {"include_usage": True}
-        }
-        headers = {
-            "Authorization": f"Bearer {config['api_key']}",
-            "Content-Type": "application/json"
-        }
-        
-        # 直接调用百炼并流式转发
+        # 构造百炼API请求体（与之前相同）
+    payload = {
+        "model": data.get("model", config.get("model", "qwen2.5-omni-7b")),
+        "messages": data["messages"],
+        "modalities": data.get("modalities", ["text"]),
+        "audio": data.get("audio"),
+        "stream": True,
+        "stream_options": {"include_usage": True}
+    }
+    headers = {
+        "Authorization": f"Bearer {config['api_key']}",
+        "Content-Type": "application/json"
+    }
+    
+    import time
+    
+    # 使用二进制模式直接转发
+    async def binary_generator():
+        logger.info('开始使用二进制模式流式转发...')
         async with httpx.AsyncClient(timeout=60.0) as client:
-            logger.info('开始直接流式转发...')
+            # 设置不要解码响应体
             r = await client.post(
                 config["base_url"] + "/chat/completions",
                 json=payload,
                 headers=headers,
             )
             
-            buffer = ""
-            async for raw_chunk in r.aiter_raw():
-                # 立即发送每个原始块，不做任何处理
-                logger.info(f'【立即转发】收到 {len(raw_chunk)} 字节')
-                await send({
-                    "type": "http.response.body",
-                    "body": raw_chunk,
-                    "more_body": True
-                })
-                await asyncio.sleep(0)
+            last_time = time.time()
+            chunk_count = 0
+            
+            # 使用二进制模式读取数据
+            async for chunk in r.aiter_raw():
+                now = time.time()
+                elapsed = now - last_time
+                chunk_count += 1
                 
-        # 关闭响应
-        await send({
-            "type": "http.response.body",
-            "body": b"",
-            "more_body": False
-        })
+                logger.info(f'[二进制] #{chunk_count} 收到 {len(chunk)} 字节，距离上次 {elapsed:.3f} 秒')
+                yield chunk  # 直接输出原始二进制数据，不做任何处理
+                
+                # 确保立即发送
+                await asyncio.sleep(0)
+                last_time = now
+        
+        logger.info('流式传输完成')
     
-    return app_endpoint
+    # 设置关键的流式响应头部
+    response_headers = {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no"  # 特别为 Nginx 设置，禁用缓冲
+    }
+    
+    # 使用CORS头部
+    response_headers = add_cors_headers(response_headers)
+    
+    return StreamingResponse(
+        binary_generator(), 
+        headers=response_headers,
+        media_type="text/event-stream"
+    )
 
 # 视频上传接口（如需AI分析可扩展）
 @app.post("/api/upload_video")
