@@ -59,44 +59,62 @@ async def chat(request: Request):
     logger.info('收到 /api/chat 请求')
     data = await request.json()
     logger.info(f'请求内容: {data}')
-    # 构造百炼API请求体（messages 已支持官方音频输入格式，无需 user_audio 字段）
-    payload = {
-        "model": data.get("model", config.get("model", "qwen2.5-omni-7b")),
-        "messages": data["messages"],
-        "modalities": data.get("modalities", ["text"]),
-        "audio": data.get("audio"),
-        "stream": True,
-        "stream_options": {"include_usage": True}
-    }
-    headers = {
-        "Authorization": f"Bearer {config['api_key']}",
-        "Content-Type": "application/json"
-    }
-    # 这些模块现在已在文件顶部导入
-    import time
-    async def event_generator():
-        logger.info('开始流式输出...')
+    
+    # 完全绕过 FastAPI 响应机制，直接使用 ASGI 接口
+    async def app_endpoint(scope, receive, send):
+        # 发送 HTTP 200 和头部
+        await send({
+            "type": "http.response.start",
+            "status": 200,
+            "headers": [
+                (b"content-type", b"text/event-stream"),
+                (b"cache-control", b"no-cache"),
+                (b"connection", b"keep-alive"),
+            ],
+        })
+        
+        # 构造百炼API请求
+        payload = {
+            "model": data.get("model", config.get("model", "qwen2.5-omni-7b")),
+            "messages": data["messages"],
+            "modalities": data.get("modalities", ["text"]),
+            "audio": data.get("audio"),
+            "stream": True,
+            "stream_options": {"include_usage": True}
+        }
+        headers = {
+            "Authorization": f"Bearer {config['api_key']}",
+            "Content-Type": "application/json"
+        }
+        
+        # 直接调用百炼并流式转发
         async with httpx.AsyncClient(timeout=60.0) as client:
+            logger.info('开始直接流式转发...')
             r = await client.post(
                 config["base_url"] + "/chat/completions",
                 json=payload,
                 headers=headers,
             )
+            
             buffer = ""
-            async for chunk in r.aiter_text():
-                logger.info(f'【验证流式】{time.time()} 收到 chunk: {repr(chunk)}')
-                buffer += chunk
-                while "\n" in buffer:
-                    line, buffer = buffer.split("\n", 1)
-                    line = line.strip()
-                    if line:
-                        logger.info(f'输出 JSON 行: {line}')
-                        # 使用SSE格式包装数据
-                        yield f"data: {line}\n\n"
-        logger.info('流式输出完成')
-    logger.info('准备返回 SSEResponse')
-    # 使用自定义的 SSEResponse，专为流式输出优化
-    return SSEResponse(event_generator())
+            async for raw_chunk in r.aiter_raw():
+                # 立即发送每个原始块，不做任何处理
+                logger.info(f'【立即转发】收到 {len(raw_chunk)} 字节')
+                await send({
+                    "type": "http.response.body",
+                    "body": raw_chunk,
+                    "more_body": True
+                })
+                await asyncio.sleep(0)
+                
+        # 关闭响应
+        await send({
+            "type": "http.response.body",
+            "body": b"",
+            "more_body": False
+        })
+    
+    return app_endpoint
 
 # 视频上传接口（如需AI分析可扩展）
 @app.post("/api/upload_video")
