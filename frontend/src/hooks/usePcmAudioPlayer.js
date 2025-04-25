@@ -1,6 +1,9 @@
 import { useEffect } from 'react';
 
 // 播放裸PCM分片（24000Hz int16）
+// 全局播放指针，确保PCM片段串行播放
+if (!window._pcmPlayCursor) window._pcmPlayCursor = 0;
+
 export function playPcmChunk(base64Str, sampleRate = 24000) {
   if (!base64Str) return;
   const audioCtx = window._pcmAudioCtx || (window._pcmAudioCtx = new (window.AudioContext || window.webkitAudioContext)());
@@ -18,8 +21,15 @@ export function playPcmChunk(base64Str, sampleRate = 24000) {
   const source = audioCtx.createBufferSource();
   source.buffer = audioBuffer;
   source.connect(audioCtx.destination);
-  source.start();
+
+  // 串行排队播放，避免重叠
+  if (!window._pcmPlayCursor || window._pcmPlayCursor < audioCtx.currentTime) {
+    window._pcmPlayCursor = audioCtx.currentTime;
+  }
+  source.start(window._pcmPlayCursor);
+  window._pcmPlayCursor += audioBuffer.duration;
 }
+
 
 // 用于流式PCM自动拼接播放
 export function usePcmAudioPlayer(pendingPcmChunks, setPendingPcmChunks) {
