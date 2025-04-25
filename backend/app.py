@@ -56,15 +56,21 @@ async def chat(request: Request):
             buffer = ""
             async for chunk in r.aiter_text():
                 logger.info(f'【验证流式】{time.time()} 收到 chunk: {repr(chunk)}')
+                # 立即为每个chunk生成输出，不等待完整行
+                yield f"data: {chunk}\n\n".encode("utf-8")
+                await asyncio.sleep(0)
+                
+                # 原来的行处理逻辑还保留，但不必须
                 buffer += chunk
                 while "\n" in buffer:
                     line, buffer = buffer.split("\n", 1)
                     line = line.strip()
                     if line:
                         logger.info(f'输出 JSON 行: {line}')
-                        yield (line + "\n").encode("utf-8")
-                        await asyncio.sleep(0)
+                        # 注意：我们已在上面yield过这些数据了
+                
         logger.info('流式输出完成')
+        yield "data: [DONE]\r\n\r\n".encode("utf-8")
     logger.info('准备返回 StreamingResponse')
     # 推荐使用 application/json，如果上游是SSE则可改为 text/event-stream
     return StreamingResponse(event_generator(), media_type="text/event-stream")
