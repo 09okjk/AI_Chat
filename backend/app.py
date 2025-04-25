@@ -1,19 +1,10 @@
 import yaml
 import httpx
-import asyncio
 from fastapi import FastAPI, Request, Response
 from starlette.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
-
-# 定义一些常量和工具函数
-def add_cors_headers(headers):
-    """Add CORS headers to a dictionary."""
-    headers["Access-Control-Allow-Origin"] = "*"
-    headers["Access-Control-Allow-Methods"] = "*"
-    headers["Access-Control-Allow-Headers"] = "*"
-    return headers
 
 # 允许前端跨域访问
 app.add_middleware(
@@ -39,8 +30,7 @@ async def chat(request: Request):
     logger.info('收到 /api/chat 请求')
     data = await request.json()
     logger.info(f'请求内容: {data}')
-    
-        # 构造百炼API请求体（与之前相同）
+    # 构造百炼API请求体（messages 已支持官方音频输入格式，无需 user_audio 字段）
     payload = {
         "model": data.get("model", config.get("model", "qwen2.5-omni-7b")),
         "messages": data["messages"],
@@ -53,54 +43,31 @@ async def chat(request: Request):
         "Authorization": f"Bearer {config['api_key']}",
         "Content-Type": "application/json"
     }
-    
+    import asyncio
     import time
-    
-    # 使用二进制模式直接转发
-    async def binary_generator():
-        logger.info('开始使用二进制模式流式转发...')
+    async def event_generator():
+        logger.info('开始流式输出...')
         async with httpx.AsyncClient(timeout=60.0) as client:
-            # 设置不要解码响应体
             r = await client.post(
                 config["base_url"] + "/chat/completions",
                 json=payload,
                 headers=headers,
             )
-            
-            last_time = time.time()
-            chunk_count = 0
-            
-            # 使用二进制模式读取数据
-            async for chunk in r.aiter_raw():
-                now = time.time()
-                elapsed = now - last_time
-                chunk_count += 1
-                
-                logger.info(f'[二进制] #{chunk_count} 收到 {len(chunk)} 字节，距离上次 {elapsed:.3f} 秒')
-                yield chunk  # 直接输出原始二进制数据，不做任何处理
-                
-                # 确保立即发送
-                await asyncio.sleep(0)
-                last_time = now
-        
-        logger.info('流式传输完成')
-    
-    # 设置关键的流式响应头部
-    response_headers = {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        "Connection": "keep-alive",
-        "X-Accel-Buffering": "no"  # 特别为 Nginx 设置，禁用缓冲
-    }
-    
-    # 使用CORS头部
-    response_headers = add_cors_headers(response_headers)
-    
-    return StreamingResponse(
-        binary_generator(), 
-        headers=response_headers,
-        media_type="text/event-stream"
-    )
+            buffer = ""
+            async for chunk in r.aiter_text():
+                logger.info(f'【验证流式】{time.time()} 收到 chunk: {repr(chunk)}')
+                buffer += chunk
+                while "\n" in buffer:
+                    line, buffer = buffer.split("\n", 1)
+                    line = line.strip()
+                    if line:
+                        logger.info(f'输出 JSON 行: {line}')
+                        yield (line + "\n").encode("utf-8")
+                        await asyncio.sleep(0)
+        logger.info('流式输出完成')
+    logger.info('准备返回 StreamingResponse')
+    # 推荐使用 application/json，如果上游是SSE则可改为 text/event-stream
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 # 视频上传接口（如需AI分析可扩展）
 @app.post("/api/upload_video")
