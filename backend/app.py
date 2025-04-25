@@ -44,6 +44,7 @@ async def chat(request: Request):
         "Content-Type": "application/json"
     }
     import asyncio
+    import time
     async def event_generator():
         logger.info('开始流式输出...')
         async with httpx.AsyncClient(timeout=60.0) as client:
@@ -54,6 +55,7 @@ async def chat(request: Request):
             )
             buffer = ""
             async for chunk in r.aiter_text():
+                logger.info(f'【验证流式】{time.time()} 收到 chunk: {repr(chunk)}')
                 buffer += chunk
                 while "\n" in buffer:
                     line, buffer = buffer.split("\n", 1)
