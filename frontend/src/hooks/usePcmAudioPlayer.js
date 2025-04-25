@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
 
 // 播放裸PCM分片（24000Hz int16）
-// 全局播放指针，确保PCM片段串行播放
+// 全局播放指针和播放节点列表，确保PCM片段串行播放和可中断
 if (!window._pcmPlayCursor) window._pcmPlayCursor = 0;
+if (!window._pcmSourceNodes) window._pcmSourceNodes = [];
 
 export function playPcmChunk(base64Str, sampleRate = 24000) {
   if (!base64Str) return;
@@ -27,8 +28,26 @@ export function playPcmChunk(base64Str, sampleRate = 24000) {
     window._pcmPlayCursor = audioCtx.currentTime;
   }
   source.start(window._pcmPlayCursor);
+  // 记录当前播放节点，便于stop时终止
+  window._pcmSourceNodes.push(source);
+  // 自动清理已播放节点
+  source.onended = () => {
+    window._pcmSourceNodes = window._pcmSourceNodes.filter(n => n !== source);
+  };
   window._pcmPlayCursor += audioBuffer.duration;
 }
+
+// 停止所有未播放和正在播放的PCM音频
+export function stopPCMPlayback() {
+  if (window._pcmSourceNodes) {
+    window._pcmSourceNodes.forEach(node => {
+      try { node.stop && node.stop(); } catch(e) {}
+    });
+    window._pcmSourceNodes = [];
+  }
+  window._pcmPlayCursor = 0;
+}
+
 
 
 // 用于流式PCM自动拼接播放
