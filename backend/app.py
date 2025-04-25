@@ -67,7 +67,7 @@ async def chat(request: Request):
         logger.info('流式输出完成')
     logger.info('准备返回 StreamingResponse')
     # 推荐使用 application/json，如果上游是SSE则可改为 text/event-stream
-    return StreamingResponse(event_generator(), media_type="application/json")
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 # 视频上传接口（如需AI分析可扩展）
 @app.post("/api/upload_video")
