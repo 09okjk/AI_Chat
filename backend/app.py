@@ -21,35 +21,6 @@ def get_config():
 
 config = get_config()
 
-from fastapi import Response
-
-class SSEResponse(Response):
-    media_type = "text/event-stream"
-    
-    def __init__(self, generator, status_code=200):
-        super().__init__(content=None, status_code=status_code)
-        self.generator = generator
-        
-    async def __call__(self, scope, receive, send):
-        await send({
-            "type": "http.response.start",
-            "status": self.status_code,
-            "headers": [
-                [b"content-type", b"text/event-stream"],
-                [b"cache-control", b"no-cache"],
-                [b"connection", b"keep-alive"],
-                [b"transfer-encoding", b"chunked"],
-            ],
-        })
-        
-        async for chunk in self.generator:
-            if not isinstance(chunk, bytes):
-                chunk = chunk.encode("utf-8") if isinstance(chunk, str) else b""
-            await send({"type": "http.response.body", "body": chunk, "more_body": True})
-            await asyncio.sleep(0)
-        
-        await send({"type": "http.response.body", "body": b"", "more_body": False})
-
 # 文字/语音对话接口（流式转发）
 @app.post("/api/chat")
 async def chat(request: Request):
@@ -74,36 +45,47 @@ async def chat(request: Request):
     }
     import asyncio
     import time
-    async def event_generator():
-        logger.info('开始流式输出...')
+    
+    logger.info('准备直接使用 httpx 响应流')
+    async def direct_stream_generator():
         async with httpx.AsyncClient(timeout=60.0) as client:
+            # 获取上游响应
+            logger.info('向百炼API发送请求')
             r = await client.post(
                 config["base_url"] + "/chat/completions",
                 json=payload,
                 headers=headers,
             )
-            buffer = ""
+            logger.info(f'收到百炼API响应，状态码: {r.status_code}')
+            logger.info(f'响应头: {dict(r.headers)}')
+            
+            # 直接转发流
+            logger.info('开始流式输出...')
+            count = 0
             async for chunk in r.aiter_text():
-                logger.info(f'【验证流式】{time.time()} 收到 chunk: {repr(chunk)}')
-                # 立即为每个chunk生成输出，不等待完整行
-                yield f"data: {chunk}\n\n".encode("utf-8")
-                await asyncio.sleep(0)
-                
-                # 原来的行处理逻辑还保留，但不必须
-                buffer += chunk
-                while "\n" in buffer:
-                    line, buffer = buffer.split("\n", 1)
-                    line = line.strip()
-                    if line:
-                        logger.info(f'输出 JSON 行: {line}')
-                        # 注意：我们已在上面yield过这些数据了
-                
-        logger.info('流式输出完成')
-        yield "data: [DONE]\r\n\r\n".encode("utf-8")
-    logger.info('准备返回 StreamingResponse')
-    # 推荐使用 application/json，如果上游是SSE则可改为 text/event-stream
-    # return StreamingResponse(event_generator(), media_type="text/event-stream")
-    return SSEResponse(event_generator())
+                count += 1
+                now = time.time()
+                logger.info(f'【流式转发】{now} 收到并立即转发 chunk #{count}: {repr(chunk)}')
+                # 将每个 chunk 包装为 SSE 格式
+                if chunk.strip():
+                    yield f"data: {chunk}\n\n".encode("utf-8")
+                    await asyncio.sleep(0)
+            
+            logger.info(f'流式输出完成，共 {count} 个 chunks')
+            # 发送结束标记
+            yield b"data: [DONE]\n\n"
+    
+    # 返回带有适当SSE头部的流式响应
+    logger.info('返回 StreamingResponse')
+    return StreamingResponse(
+        direct_stream_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # 为 Nginx 禁用缓冲
+        }
+    )
 
 # 视频上传接口（如需AI分析可扩展）
 @app.post("/api/upload_video")
