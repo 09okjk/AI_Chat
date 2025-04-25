@@ -186,22 +186,40 @@ export default function useVoiceCallLogic(state) {
   const audioInputQueue = React.useRef([]);
   const decodeWorkerRunning = React.useRef(false);
 
-  // 解析worker：不断从audioInputQueue取数据，直接播放
+  // 解析worker：累计多个片段后合并播放，减少杂音
   React.useEffect(() => {
     if (decodeWorkerRunning.current) return;
     decodeWorkerRunning.current = true;
     let cancelled = false;
+    const chunkBuffer = { current: [] };
+    const CHUNK_THRESHOLD = 5; // 收集5个片段后合并播放，可根据实际体验调整
     async function decodeWorker() {
       while (!cancelled) {
         if (audioInputQueue.current.length > 0) {
           const audioData = audioInputQueue.current.shift();
-          try {
-            await playPcmChunk(audioData, 24000); // 直接播放，顺序保证
-            appendLog('音频片段已解码并播放');
-          } catch (e) {
-            appendLog('音频片段解码或播放失败', e);
+          chunkBuffer.current.push(audioData);
+          if (chunkBuffer.current.length >= CHUNK_THRESHOLD) {
+            const merged = chunkBuffer.current.join('');
+            try {
+              await playPcmChunk(merged, 24000);
+              appendLog('合并片段已播放');
+            } catch (e) {
+              appendLog('合并片段播放失败', e);
+            }
+            chunkBuffer.current = [];
           }
         } else {
+          // 队列空时，如果有残留片段，也要及时播放
+          if (chunkBuffer.current.length > 0) {
+            const merged = chunkBuffer.current.join('');
+            try {
+              await playPcmChunk(merged, 24000);
+              appendLog('末尾残留片段已播放');
+            } catch (e) {
+              appendLog('末尾残留片段播放失败', e);
+            }
+            chunkBuffer.current = [];
+          }
           await new Promise(r => setTimeout(r, 10));
         }
       }
@@ -209,6 +227,7 @@ export default function useVoiceCallLogic(state) {
     decodeWorker();
     return () => { cancelled = true; decodeWorkerRunning.current = false; };
   }, []);
+
 
 
   // AI接口调用
