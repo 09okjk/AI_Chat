@@ -21,6 +21,35 @@ def get_config():
 
 config = get_config()
 
+from fastapi import Response
+
+class SSEResponse(Response):
+    media_type = "text/event-stream"
+    
+    def __init__(self, generator, status_code=200):
+        super().__init__(content=None, status_code=status_code)
+        self.generator = generator
+        
+    async def __call__(self, scope, receive, send):
+        await send({
+            "type": "http.response.start",
+            "status": self.status_code,
+            "headers": [
+                [b"content-type", b"text/event-stream"],
+                [b"cache-control", b"no-cache"],
+                [b"connection", b"keep-alive"],
+                [b"transfer-encoding", b"chunked"],
+            ],
+        })
+        
+        async for chunk in self.generator:
+            if not isinstance(chunk, bytes):
+                chunk = chunk.encode("utf-8") if isinstance(chunk, str) else b""
+            await send({"type": "http.response.body", "body": chunk, "more_body": True})
+            await asyncio.sleep(0)
+        
+        await send({"type": "http.response.body", "body": b"", "more_body": False})
+
 # 文字/语音对话接口（流式转发）
 @app.post("/api/chat")
 async def chat(request: Request):
@@ -73,7 +102,8 @@ async def chat(request: Request):
         yield "data: [DONE]\r\n\r\n".encode("utf-8")
     logger.info('准备返回 StreamingResponse')
     # 推荐使用 application/json，如果上游是SSE则可改为 text/event-stream
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+    # return StreamingResponse(event_generator(), media_type="text/event-stream")
+    return SSEResponse(event_generator())
 
 # 视频上传接口（如需AI分析可扩展）
 @app.post("/api/upload_video")
