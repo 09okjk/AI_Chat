@@ -43,6 +43,7 @@ async def chat(request: Request):
         "Authorization": f"Bearer {config['api_key']}",
         "Content-Type": "application/json"
     }
+    import asyncio
     async def event_generator():
         logger.info('开始流式输出...')
         async with httpx.AsyncClient(timeout=60.0) as client:
@@ -51,11 +52,19 @@ async def chat(request: Request):
                 json=payload,
                 headers=headers,
             )
+            buffer = b''
             async for chunk in r.aiter_bytes():
-                logger.info(f'输出 chunk: {chunk}')
-                yield chunk
+                buffer += chunk
+                while b"\n" in buffer:
+                    line, buffer = buffer.split(b"\n", 1)
+                    line = line.strip()
+                    if line:
+                        logger.info(f'输出行: {line}')
+                        yield line + b"\n"
+                        await asyncio.sleep(0)  # 让事件循环及时调度，及时flush
         logger.info('流式输出完成')
     logger.info('准备返回 StreamingResponse')
+    # 推荐使用 application/json，如果上游是SSE则可改为 text/event-stream
     return StreamingResponse(event_generator(), media_type="application/json")
 
 # 视频上传接口（如需AI分析可扩展）
