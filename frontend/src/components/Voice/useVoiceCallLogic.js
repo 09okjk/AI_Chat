@@ -1,3 +1,4 @@
+import React from 'react';
 import { message, Modal } from 'antd';
 import { chatWithAI } from '../../utils/api';
 import { playPcmChunk } from '../../hooks/usePcmAudioPlayer';
