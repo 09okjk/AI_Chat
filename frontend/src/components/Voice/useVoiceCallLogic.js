@@ -181,25 +181,65 @@ export default function useVoiceCallLogic(state) {
     return null;
   }
 
-  // AI接口调用 - 优化流式音频处理
+  // 队列定义
+  const audioInputQueue = React.useRef([]);
+  const pcmQueue = React.useRef([]);
+  const playbackWorkerRunning = React.useRef(false);
+  const decodeWorkerRunning = React.useRef(false);
+
+  // 解析worker：不断从audioInputQueue取数据，异步解析后放入pcmQueue
+  React.useEffect(() => {
+    if (decodeWorkerRunning.current) return;
+    decodeWorkerRunning.current = true;
+    let cancelled = false;
+    async function decodeWorker() {
+      while (!cancelled) {
+        if (audioInputQueue.current.length > 0) {
+          const audioData = audioInputQueue.current.shift();
+          try {
+            const pcm = await playPcmChunk(audioData, { decodeOnly: true });
+            if (pcm) {
+              pcmQueue.current.push(pcm);
+              appendLog('音频片段已解码并入播放队列');
+            }
+          } catch (e) {
+            appendLog('音频片段解码失败', e);
+          }
+        } else {
+          await new Promise(r => setTimeout(r, 10));
+        }
+      }
+    }
+    decodeWorker();
+    return () => { cancelled = true; decodeWorkerRunning.current = false; };
+  }, []);
+
+  // 播放worker：不断从pcmQueue取数据，顺序播放
+  React.useEffect(() => {
+    if (playbackWorkerRunning.current) return;
+    playbackWorkerRunning.current = true;
+    let cancelled = false;
+    async function playbackWorker() {
+      while (!cancelled) {
+        if (pcmQueue.current.length > 0) {
+          const pcm = pcmQueue.current.shift();
+          try {
+            await playPcmChunk(pcm); // 播放PCM片段
+            appendLog('音频片段已播放');
+          } catch (e) {
+            appendLog('音频片段播放失败', e);
+          }
+        } else {
+          await new Promise(r => setTimeout(r, 10));
+        }
+      }
+    }
+    playbackWorker();
+    return () => { cancelled = true; playbackWorkerRunning.current = false; };
+  }, []);
+
+  // AI接口调用
   async function callAIWithAudio(base64Audio, extType) {
-    // 清空现有状态
-    setTranscript('');
-    setAiAudio(null);
-    setAiAudioChunks([]);
-    setPendingPcmChunks([]);
-    setAiThinking(true);
-    setLoading(true);
-    
-    // 创建统计数据对象
-    const stats = {
-      audioChunksReceived: 0,
-      textChunksReceived: 0,
-      startTime: Date.now(),
-      lastChunkTime: 0
-    };
-    
-    // 音频消息构建
     const audioMsg = {
       type: "input_audio",
       input_audio: {
@@ -207,13 +247,10 @@ export default function useVoiceCallLogic(state) {
         format: extType
       }
     };
-    
-    // 文本提示准备
     let queryText = transcript;
     if (!queryText) queryText = '';
     let lang = detectLang(queryText);
     let prompt;
-    
     if (lang === 'zh') {
       prompt = '请帮我识别这段中文语音内容';
     } else if (lang === 'en') {
@@ -221,115 +258,47 @@ export default function useVoiceCallLogic(state) {
     } else {
       prompt = '请帮我识别音频内容';
     }
-    
     const textMsg = { type: "text", text: queryText || prompt };
-    
-    // 开始请求
-    appendLog('发送音频到AI', { voiceType: voice, format: extType });
-    
-    try {
-      await chatWithAI({
-        messages: [{ role: 'user', content: [audioMsg, textMsg] }],
-        model: 'qwen2.5-omni-7b',
-        modalities: ['text', 'audio'],
-        audio: { voice, format: extType },
-        stream: true
-      }, (data) => {
-        // 忽略空数据或[DONE]标记
-        if (!data || data === '[DONE]') return;
-        
-        stats.lastChunkTime = Date.now();
-        
-        // 处理标准的选择格式
+    await chatWithAI({
+      messages: [{ role: 'user', content: [audioMsg, textMsg] }],
+      model: 'qwen2.5-omni-7b',
+      modalities: ['text', 'audio'],
+      audio: { voice, format: extType },
+      stream: true
+    }, (data) => {
+      appendLog('收到AI流', data);
+      try {
         if (data.choices && Array.isArray(data.choices)) {
-          // 首次收到响应
-          if (stats.audioChunksReceived === 0 && stats.textChunksReceived === 0) {
-            appendLog('首次收到AI响应', { responseTime: Date.now() - stats.startTime });
-          }
-          
           for (const choice of data.choices) {
-            // 处理音频增量
             if (choice.delta && choice.delta.audio) {
-              // 处理音频数据
               if (typeof choice.delta.audio.data === 'string' && choice.delta.audio.data.length > 0) {
-                stats.audioChunksReceived++;
-                
-                // 收集完整音频供稍后使用
-                setAiAudioChunks(chunks => [...chunks, choice.delta.audio.data]);
-                
-                // 加入播放队列进行实时播放
-                setPendingPcmChunks(chunks => [...chunks, choice.delta.audio.data]);
-                
-                // 定期记录统计信息
-                if (stats.audioChunksReceived % 10 === 0) {
-                  appendLog('AI音频流进度', { 
-                    chunks: stats.audioChunksReceived,
-                    elapsedMs: Date.now() - stats.startTime
-                  });
-                }
+                audioInputQueue.current.push(choice.delta.audio.data);
+                appendLog('AI音频片已入解析队列');
               }
-              
-              // 处理音频转写
               if (typeof choice.delta.audio.transcript === 'string' && choice.delta.audio.transcript.length > 0) {
-                stats.textChunksReceived++;
                 setTranscript(t => t + choice.delta.audio.transcript);
+                appendLog('AI文本片', choice.delta.audio.transcript);
               }
             }
-            
-            // 处理纯文本增量
-            if (choice.delta && choice.delta.content && typeof choice.delta.content === 'string') {
-              stats.textChunksReceived++;
-              setTranscript(t => t + choice.delta.content);
-            } else if (choice.delta && typeof choice.delta.text === 'string') {
-              // 兼容旧格式
-              stats.textChunksReceived++;
+            if (choice.delta && typeof choice.delta.text === 'string') {
               setTranscript(t => t + choice.delta.text);
+              appendLog('AI文本片', choice.delta.text);
             }
           }
         }
-        
-        // 处理非增量完整响应
-        if (data.response) {
-          // 保存完整音频以便后续播放
-          if (typeof data.response.audio === 'string' && data.response.audio.length > 100) {
-            setAiAudio(data.response.audio);
-            appendLog('收到完整AI音频(response)');
-          }
-          
-          // 保存完整转写文本
-          if (typeof data.response.text === 'string' && data.response.text.length > 0) {
-            setTranscript(data.response.text);
-            appendLog('收到完整AI文本(response)');
-          }
+        if (data.response && typeof data.response.audio === 'string' && data.response.audio.length > 100) {
+          setAiAudio(data.response.audio); // 只保存完整音频，供试听用，不自动播放
+          appendLog('AI音频已保存(response)');
         }
-        
-        // 流结束处理
         if (data.finish_reason === 'stop' || data.done === true) {
-          // 合并所有已收到的音频片段作为完整音频
-          setAiAudioChunks(chunks => {
-            if (chunks.length > 0) {
-              const merged = chunks.join('');
-              setAiAudio(merged);
-              appendLog('流结束，合并所有音频片段', { totalChunks: chunks.length });
-            }
-            return [];
-          });
-          
-          // 最终统计信息
-          appendLog('AI回复完成', { 
-            totalAudioChunks: stats.audioChunksReceived,
-            totalTextChunks: stats.textChunksReceived,
-            totalTimeMs: Date.now() - stats.startTime
-          });
+          setAiAudioChunks([]); // 播放完毕，清空片段
         }
-      });
-    } catch (e) {
-      appendLog('AI流解析失败', e);
-      setTranscript(t => t + '\n[音频处理出错，请重试]');
-    } finally {
+      } catch (e) {
+        appendLog('AI流解析失败', e);
+      }
       setLoading(false);
       setAiThinking(false);
-    }
+    });
   }
 
   // 试听录音
