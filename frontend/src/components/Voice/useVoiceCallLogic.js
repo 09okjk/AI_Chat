@@ -184,11 +184,9 @@ export default function useVoiceCallLogic(state) {
 
   // 队列定义
   const audioInputQueue = React.useRef([]);
-  const pcmQueue = React.useRef([]);
-  const playbackWorkerRunning = React.useRef(false);
   const decodeWorkerRunning = React.useRef(false);
 
-  // 解析worker：不断从audioInputQueue取数据，异步解析后放入pcmQueue
+  // 解析worker：不断从audioInputQueue取数据，直接播放
   React.useEffect(() => {
     if (decodeWorkerRunning.current) return;
     decodeWorkerRunning.current = true;
@@ -198,13 +196,10 @@ export default function useVoiceCallLogic(state) {
         if (audioInputQueue.current.length > 0) {
           const audioData = audioInputQueue.current.shift();
           try {
-            const pcm = await playPcmChunk(audioData, { decodeOnly: true });
-            if (pcm) {
-              pcmQueue.current.push(pcm);
-              appendLog('音频片段已解码并入播放队列');
-            }
+            await playPcmChunk(audioData, 24000); // 直接播放，顺序保证
+            appendLog('音频片段已解码并播放');
           } catch (e) {
-            appendLog('音频片段解码失败', e);
+            appendLog('音频片段解码或播放失败', e);
           }
         } else {
           await new Promise(r => setTimeout(r, 10));
@@ -215,29 +210,6 @@ export default function useVoiceCallLogic(state) {
     return () => { cancelled = true; decodeWorkerRunning.current = false; };
   }, []);
 
-  // 播放worker：不断从pcmQueue取数据，顺序播放
-  React.useEffect(() => {
-    if (playbackWorkerRunning.current) return;
-    playbackWorkerRunning.current = true;
-    let cancelled = false;
-    async function playbackWorker() {
-      while (!cancelled) {
-        if (pcmQueue.current.length > 0) {
-          const pcm = pcmQueue.current.shift();
-          try {
-            await playPcmChunk(pcm); // 播放PCM片段
-            appendLog('音频片段已播放');
-          } catch (e) {
-            appendLog('音频片段播放失败', e);
-          }
-        } else {
-          await new Promise(r => setTimeout(r, 10));
-        }
-      }
-    }
-    playbackWorker();
-    return () => { cancelled = true; playbackWorkerRunning.current = false; };
-  }, []);
 
   // AI接口调用
   async function callAIWithAudio(base64Audio, extType) {
