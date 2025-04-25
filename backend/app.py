@@ -52,16 +52,16 @@ async def chat(request: Request):
                 json=payload,
                 headers=headers,
             )
-            buffer = b''
-            async for chunk in r.aiter_bytes():
+            buffer = ""
+            async for chunk in r.aiter_text():
                 buffer += chunk
-                while b"\n" in buffer:
-                    line, buffer = buffer.split(b"\n", 1)
+                while "\n" in buffer:
+                    line, buffer = buffer.split("\n", 1)
                     line = line.strip()
                     if line:
-                        logger.info(f'输出行: {line}')
-                        yield line + b"\n"
-                        await asyncio.sleep(0)  # 让事件循环及时调度，及时flush
+                        logger.info(f'输出 JSON 行: {line}')
+                        yield (line + "\n").encode("utf-8")
+                        await asyncio.sleep(0)
         logger.info('流式输出完成')
     logger.info('准备返回 StreamingResponse')
     # 推荐使用 application/json，如果上游是SSE则可改为 text/event-stream
