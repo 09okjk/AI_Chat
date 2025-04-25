@@ -231,9 +231,8 @@ export default function useVoiceCallLogic(state) {
           }
         }
         if (data.response && typeof data.response.audio === 'string' && data.response.audio.length > 100) {
-          playPcmChunk(data.response.audio, 24000);
-          setAiAudio(data.response.audio);
-          appendLog('AI音频已播放(response)');
+          setAiAudio(data.response.audio); // 只保存完整音频，供试听用，不自动播放
+          appendLog('AI音频已保存(response)');
         }
         if (data.finish_reason === 'stop' || data.done === true) {
           setAiAudioChunks(chunks => {
