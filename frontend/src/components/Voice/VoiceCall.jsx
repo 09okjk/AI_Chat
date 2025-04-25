@@ -14,9 +14,15 @@ import useVoiceCallLogic from './useVoiceCallLogic';
 const VoiceCall = () => {
   // 统一管理所有状态
   const state = useVoiceCallState('Chelsie');
-  const logic = useVoiceCallLogic(state);
   const [isPlaying, setIsPlaying] = useState(false);
   const [aiAudioBuffer, setAiAudioBuffer] = useState([]); // 用于保存AI完整音频
+
+  // 联动AI语音流事件
+  const logic = useVoiceCallLogic(state, {
+    onAIPCMChunk: chunk => setAiAudioBuffer(prev => [...prev, chunk]),
+    onAIPlaybackStart: () => setIsPlaying(true),
+    onAIPlaybackEnd: () => setIsPlaying(false)
+  });
 
   const {
     VOICES, voice, setVoice,

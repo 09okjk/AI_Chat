@@ -3,7 +3,12 @@ import { message, Modal } from 'antd';
 import { chatWithAI } from '../../utils/api';
 import { playPcmChunk } from '../../hooks/usePcmAudioPlayer';
 
-export default function useVoiceCallLogic(state) {
+// 新增: 支持外部事件回调
+export default function useVoiceCallLogic(state, {
+  onAIPCMChunk,
+  onAIPlaybackStart,
+  onAIPlaybackEnd
+} = {}) {
   const {
     VOICES, voice, setVoice,
     pendingPcmChunks, setPendingPcmChunks,
@@ -195,16 +200,21 @@ export default function useVoiceCallLogic(state) {
     const MIN_BUFFER = 8;  // 播放前至少缓冲8个片段（可根据体验调整）
     const MAX_MERGE = 12;  // 单次最多合并播放12个片段
     const MIN_MERGE = 4;   // 单次最少合并4个片段
+    let isFirstPlay = true;
     async function decodeWorker() {
       while (!cancelled) {
         // 1. 如果缓冲区足够，合并一批片段播放
         if (audioInputQueue.current.length >= MIN_BUFFER) {
           let mergeCount = Math.min(audioInputQueue.current.length, MAX_MERGE);
           for (let i = 0; i < mergeCount; i++) {
-            chunkBuffer.current.push(audioInputQueue.current.shift());
+            const chunk = audioInputQueue.current.shift();
+            chunkBuffer.current.push(chunk);
+            if (onAIPCMChunk) onAIPCMChunk(chunk);
           }
           const merged = chunkBuffer.current.join('');
           try {
+            if (isFirstPlay && onAIPlaybackStart) onAIPlaybackStart();
+            isFirstPlay = false;
             await playPcmChunk(merged, 24000);
             appendLog(`动态缓冲区合并${mergeCount}段已播放`);
           } catch (e) {
@@ -223,10 +233,14 @@ export default function useVoiceCallLogic(state) {
           await new Promise(r => setTimeout(r, 100));
           if (audioInputQueue.current.length > 0) {
             while (audioInputQueue.current.length > 0) {
-              chunkBuffer.current.push(audioInputQueue.current.shift());
+              const chunk = audioInputQueue.current.shift();
+              chunkBuffer.current.push(chunk);
+              if (onAIPCMChunk) onAIPCMChunk(chunk);
             }
             const merged = chunkBuffer.current.join('');
             try {
+              if (isFirstPlay && onAIPlaybackStart) onAIPlaybackStart();
+              isFirstPlay = false;
               await playPcmChunk(merged, 24000);
               appendLog('动态缓冲区末尾残留片段已播放');
             } catch (e) {
@@ -241,8 +255,13 @@ export default function useVoiceCallLogic(state) {
       }
     }
     decodeWorker();
-    return () => { cancelled = true; decodeWorkerRunning.current = false; };
-  }, []);
+    // 监听AI流播放结束
+    return () => {
+      cancelled = true;
+      decodeWorkerRunning.current = false;
+      if (onAIPlaybackEnd) onAIPlaybackEnd();
+    };
+  }, [onAIPCMChunk, onAIPlaybackStart, onAIPlaybackEnd]);
 
 
 
