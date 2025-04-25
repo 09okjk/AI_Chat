@@ -186,40 +186,56 @@ export default function useVoiceCallLogic(state) {
   const audioInputQueue = React.useRef([]);
   const decodeWorkerRunning = React.useRef(false);
 
-  // 解析worker：累计多个片段后合并播放，减少杂音
+  // 动态缓冲区方案：优先保证播放平滑，动态判断队列长度
   React.useEffect(() => {
     if (decodeWorkerRunning.current) return;
     decodeWorkerRunning.current = true;
     let cancelled = false;
     const chunkBuffer = { current: [] };
-    const CHUNK_THRESHOLD = 5; // 收集5个片段后合并播放，可根据实际体验调整
+    const MIN_BUFFER = 8;  // 播放前至少缓冲8个片段（可根据体验调整）
+    const MAX_MERGE = 12;  // 单次最多合并播放12个片段
+    const MIN_MERGE = 4;   // 单次最少合并4个片段
     async function decodeWorker() {
       while (!cancelled) {
-        if (audioInputQueue.current.length > 0) {
-          const audioData = audioInputQueue.current.shift();
-          chunkBuffer.current.push(audioData);
-          if (chunkBuffer.current.length >= CHUNK_THRESHOLD) {
+        // 1. 如果缓冲区足够，合并一批片段播放
+        if (audioInputQueue.current.length >= MIN_BUFFER) {
+          let mergeCount = Math.min(audioInputQueue.current.length, MAX_MERGE);
+          for (let i = 0; i < mergeCount; i++) {
+            chunkBuffer.current.push(audioInputQueue.current.shift());
+          }
+          const merged = chunkBuffer.current.join('');
+          try {
+            await playPcmChunk(merged, 24000);
+            appendLog(`动态缓冲区合并${mergeCount}段已播放`);
+          } catch (e) {
+            appendLog('动态缓冲区合并片段播放失败', e);
+          }
+          chunkBuffer.current = [];
+        }
+        // 2. 如果缓冲区有少量片段但未达到MIN_BUFFER，等待一会儿再判断
+        else if (audioInputQueue.current.length >= MIN_MERGE) {
+          // 等待50ms看是否能补齐到MIN_BUFFER
+          await new Promise(r => setTimeout(r, 50));
+        }
+        // 3. 如果队列空或只剩1~3个片段，等一会儿后直接播放剩余片段，避免尾部丢失
+        else if (audioInputQueue.current.length > 0) {
+          // 等待100ms，若还未补齐，则直接播放剩余片段
+          await new Promise(r => setTimeout(r, 100));
+          if (audioInputQueue.current.length > 0) {
+            while (audioInputQueue.current.length > 0) {
+              chunkBuffer.current.push(audioInputQueue.current.shift());
+            }
             const merged = chunkBuffer.current.join('');
             try {
               await playPcmChunk(merged, 24000);
-              appendLog('合并片段已播放');
+              appendLog('动态缓冲区末尾残留片段已播放');
             } catch (e) {
-              appendLog('合并片段播放失败', e);
+              appendLog('动态缓冲区末尾残留片段播放失败', e);
             }
             chunkBuffer.current = [];
           }
         } else {
-          // 队列空时，如果有残留片段，也要及时播放
-          if (chunkBuffer.current.length > 0) {
-            const merged = chunkBuffer.current.join('');
-            try {
-              await playPcmChunk(merged, 24000);
-              appendLog('末尾残留片段已播放');
-            } catch (e) {
-              appendLog('末尾残留片段播放失败', e);
-            }
-            chunkBuffer.current = [];
-          }
+          // 队列完全空，短暂休眠
           await new Promise(r => setTimeout(r, 10));
         }
       }
