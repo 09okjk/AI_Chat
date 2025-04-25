@@ -61,33 +61,60 @@ export const chatWithAI = async (payload, onStream) => {
     const decoder = new TextDecoder();
     let done = false;
     let buffer = '';
+    
+    // 记录开始时间，用于调试
+    const startTime = Date.now();
+    let chunkCount = 0;
+    
     while (!done) {
       const { value, done: doneReading } = await reader.read();
       done = doneReading;
       if (value) {
-        buffer += decoder.decode(value, { stream: true });
-        console.log('[api.js] chatWithAI 收到流 chunk:', buffer);
-        // 处理多条data: ...
-        let lines = buffer.split(/\r?\n/);
-        // 保证最后一个未完整data: 保留到下次
-        buffer = lines.pop();
-        for (let line of lines) {
-          console.log('[api.js] chatWithAI 处理行:', line);
-          line = line.trim();
-          // 兼容 data: ... 或纯 JSON 行
-          if (line.startsWith('data:')) {
-            line = line.replace(/^data:/, '').trim();
-          }
-          if (!line) continue;
-          try {
-            const data = JSON.parse(line);
-            onStream(data);
-          } catch (error) {
-            console.error('[api.js] chatWithAI error:', error, line);
+        const chunk = decoder.decode(value, { stream: true });
+        chunkCount++;
+        const chunkTime = Date.now() - startTime;
+        console.log(`[${chunkTime}ms] 前端收到chunk #${chunkCount}, 大小: ${value.length} 字节`);
+        
+        buffer += chunk;
+        // 使用正则表达式处理SSE格式 (data: ...)
+        const parts = buffer.split(/\n\n/);
+        buffer = parts.pop() || ''; // 保留最后一部分，可能不完整
+        
+        for (let part of parts) {
+          part = part.trim();
+          if (!part) continue;
+          
+          // 解析data:前缀的行
+          if (part.startsWith('data: ')) {
+            let dataContent = part.substring(6).trim();
+            
+            // 处理特殊标记 [DONE]
+            if (dataContent === '[DONE]') {
+              console.log('[api.js] 收到流结束标记 [DONE]');
+              continue;
+            }
+            
+            try {
+              const data = JSON.parse(dataContent);
+              console.log('[api.js] 解析成功:', data);
+              onStream(data);
+            } catch (error) {
+              console.error('[api.js] JSON解析错误:', error, dataContent);
+            }
+          } else {
+            // 尝试作为普通JSON解析
+            try {
+              const data = JSON.parse(part);
+              console.log('[api.js] 解析无前缀JSON:', data);
+              onStream(data);
+            } catch (error) {
+              console.error('[api.js] 无前缀解析错误:', error, part);
+            }
           }
         }
       }
     }
+    console.log('[api.js] 流读取完成');
   } catch (error) {
     console.error('[api.js] chatWithAI error:', error);
     throw error;
