@@ -128,7 +128,7 @@ export default function useVoiceCallLogic(state) {
   }
 
   // 发送音频
-  function sendAudio(externalBase64 = null, extType = 'wav') {
+  function sendAudio(audioUrlOrBase64 = null, extType = 'wav') {
     setShowAudioModal(false);
     setLoading(true);
     setAiThinking(true);
@@ -136,10 +136,30 @@ export default function useVoiceCallLogic(state) {
     setAiAudio(null);
     setAiAudioChunks([]);
     appendLog('发送音频到AI');
-    if (externalBase64) {
-      callAIWithAudio(externalBase64, extType);
-      return;
+
+    if (audioUrlOrBase64) {
+      // 如果传的是 audioUrl (Blob URL)，先 fetch 转为 Blob
+      if (audioUrlOrBase64.startsWith('blob:')) {
+        fetch(audioUrlOrBase64)
+          .then(res => res.blob())
+          .then(blob => {
+            const reader = new FileReader();
+            reader.onload = function () {
+              const base64Body = reader.result.split(',')[1];
+              const fullBase64 = `data:audio/wav;base64,${base64Body}`;
+              callAIWithAudio(fullBase64, 'wav');
+            };
+            reader.readAsDataURL(blob);
+          });
+        return;
+      }
+      // 如果传的是 base64，直接上传
+      if (audioUrlOrBase64.startsWith('data:audio/')) {
+        callAIWithAudio(audioUrlOrBase64, extType);
+        return;
+      }
     }
+      
     const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
     const reader = new FileReader();
     reader.onload = function () {

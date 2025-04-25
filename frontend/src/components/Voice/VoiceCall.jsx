@@ -84,7 +84,7 @@ const VoiceCall = () => {
         onCancel={() => setShowAudioModal(false)}
         onRetry={() => { setShowAudioModal(false); setTimeout(() => toggleRecording(), 200); }}
         onPlay={playRecordedAudio}
-        onSend={sendAudio}
+        onSend={ () => sendAudio( audioUrl )}
       />
       <div style={{ marginTop: 36 }}>
         <AILogPanel logs={logs} envInfo={envInfo} showLog={showLog} />
