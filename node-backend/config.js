@@ -5,7 +5,7 @@ const yaml = require('js-yaml');
 function getConfig() {
   try {
     // 读取与Python后端相同的config.yaml文件
-    const configPath = '../backend/config.yaml';
+    const configPath = './config.yaml';
     const fileContents = fs.readFileSync(configPath, 'utf8');
     const config = yaml.load(fileContents);
     
@@ -15,6 +15,9 @@ function getConfig() {
     }
     if (!config.base_url) {
       config.base_url = 'https://dashscope.aliyuncs.com/compatible-mode/v1';
+    }
+    if (!config.model) {
+      config.model = 'qwen-omni-turbo';
     }
     
     return config;

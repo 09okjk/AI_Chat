@@ -27,6 +27,14 @@ app.get('/api/ping', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+// 配置获取接口
+app.get('/api/config', (req, res) => {
+  res.json({
+    model: config.model || 'qwen-omni-turbo',
+    // 可以在这里添加其他需要暴露给前端的配置
+  });
+});
+
 // 视频上传接口
 app.post('/api/upload_video', upload.single('video'), (req, res) => {
   console.log('收到视频上传请求');
@@ -43,7 +51,7 @@ app.post('/api/chat', async (req, res) => {
   try {
     // 构造百炼API请求
     const payload = {
-      model: req.body.model || config.model || 'qwen2.5-omni-7b',
+      model: req.body.model || config.model || 'qwen-omni-turbo',
       messages: req.body.messages,
       modalities: req.body.modalities || ['text'],
       audio: req.body.audio,

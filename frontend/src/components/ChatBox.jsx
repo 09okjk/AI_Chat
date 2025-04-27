@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Input, Button, List, Typography, Spin } from 'antd';
 import { SendOutlined } from '@ant-design/icons';
-import { chatWithAI } from '../utils/api';
+import { chatWithAI, getConfig } from '../utils/api';
 
 const { TextArea } = Input;
 
@@ -9,7 +9,22 @@ const ChatBox = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [modelConfig, setModelConfig] = useState(null);
   const chatEndRef = useRef(null);
+  
+  // 组件加载时获取配置
+  useEffect(() => {
+    async function fetchConfig() {
+      try {
+        const config = await getConfig();
+        setModelConfig(config);
+        console.log('ChatBox 已加载模型配置:', config);
+      } catch (error) {
+        console.error('加载配置失败:', error);
+      }
+    }
+    fetchConfig();
+  }, []);
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -23,7 +38,7 @@ const ChatBox = () => {
     try {
       await chatWithAI({
         messages: [...messages, newMsg],
-        model: 'qwen2.5-omni-7b',
+        model: modelConfig?.model || 'qwen2.5-omni-7b', // 使用从后端获取的模型名称，有fallback
         modalities: ['text'],
         stream: true
       }, (data) => {

@@ -126,3 +126,25 @@ export const uploadVideo = async (formData) => {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 };
+
+// 全局配置缓存
+let configCache = null;
+
+// 从后端获取配置
+export const getConfig = async () => {
+  // 如果已经有缓存配置，直接返回
+  if (configCache) {
+    return configCache;
+  }
+  
+  try {
+    const response = await axios.get(`${API_BASE}/config`);
+    configCache = response.data;
+    console.log('[api.js] 已获取后端配置:', configCache);
+    return configCache;
+  } catch (error) {
+    console.error('[api.js] 获取配置失败:', error);
+    // 返回默认配置
+    return { model: 'qwen2.5-omni-7b' };
+  }
+};

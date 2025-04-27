@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { message, Modal } from 'antd';
-import { chatWithAI } from '../../utils/api';
+import { chatWithAI, getConfig } from '../../utils/api';
 import { playPcmChunk, stopAllAudio } from '../../hooks/usePcmAudioPlayer';
 
 export default function useVoiceCallLogic(state) {
@@ -21,6 +21,23 @@ export default function useVoiceCallLogic(state) {
     showLog, setShowLog,
     timerRef, mediaRecorderRef, audioChunksRef, mediaStreamRef
   } = state;
+  
+  // 模型配置状态
+  const [modelConfig, setModelConfig] = React.useState(null);
+
+  // 组件加载时获取配置
+  useEffect(() => {
+    async function fetchConfig() {
+      try {
+        const config = await getConfig();
+        setModelConfig(config);
+        appendLog('已加载模型配置', config);
+      } catch (error) {
+        appendLog('加载配置失败', error);
+      }
+    }
+    fetchConfig();
+  }, []);
 
   // 日志追加
   function appendLog(msg, data) {
@@ -269,7 +286,7 @@ export default function useVoiceCallLogic(state) {
     const textMsg = { type: "text", text: queryText || prompt };
     await chatWithAI({
       messages: [{ role: 'user', content: [audioMsg, textMsg] }],
-      model: 'qwen2.5-omni-7b',
+      model: modelConfig?.model || 'qwen2.5-omni-7b', // 使用从后端获取的模型名称，有fallback
       modalities: ['text', 'audio'],
       audio: { voice, format: extType },
       stream: true
