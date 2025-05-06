@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { message, Modal } from 'antd';
-import { chatWithAI, getConfig } from '../../utils/directApiClient';
+import { chatWithAI, getConfig } from '../../utils/api';
 import { playPcmChunk, stopAllAudio } from '../../hooks/usePcmAudioPlayer';
 
 export default function useVoiceCallLogic(state) {

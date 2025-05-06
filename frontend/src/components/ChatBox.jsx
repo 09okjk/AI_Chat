@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Input, Button, List, Typography, Spin } from 'antd';
 import { SendOutlined } from '@ant-design/icons';
-import { chatWithAI, getConfig } from '../utils/directApiClient';
+import { chatWithAI, getConfig } from '../utils/api';
 
 const { TextArea } = Input;
 
