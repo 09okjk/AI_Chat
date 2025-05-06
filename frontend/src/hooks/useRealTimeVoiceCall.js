@@ -2,20 +2,11 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { message } from 'antd';
 import { getConfig } from '../utils/api';
 import { playPcmChunk, stopAllAudio } from './usePcmAudioPlayer';
+import config from '../config';
 
-// WebSocket 连接基础URL
-const getWsBaseUrl = () => {
-  if (process.env.REACT_APP_WS_BASE) return process.env.REACT_APP_WS_BASE;
-  
-  // 始终使用ws协议，避免证书问题
-  const protocol = 'ws:';
-  const host = process.env.REACT_APP_API_HOST || window.location.hostname;
-  const port = process.env.REACT_APP_API_PORT || '8016';
-  
-  return `${protocol}//${host}:${port}`;
-};
-
-const WS_BASE_URL = getWsBaseUrl();
+// 获取WebSocket连接URL
+const WS_BASE_URL = config.wsBaseUrl;
+console.log('当前使用的WebSocket基础URL:', WS_BASE_URL);
 
 /**
  * 实时语音通话钩子
