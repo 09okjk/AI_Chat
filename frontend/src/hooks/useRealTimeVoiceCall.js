@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { message } from 'antd';
-import { getConfig } from '../utils/api';
+import { getConfig } from '../utils/directApiClient';
 import { playPcmChunk, stopAllAudio } from './usePcmAudioPlayer';
 import config from '../config';
 

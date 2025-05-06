@@ -6,12 +6,13 @@ import config from '../config';
  * 确保所有API请求都使用正确的协议和地址
  */
 const createHttpClient = () => {
-  // 打印配置信息
-  console.log('创建HTTP客户端，基础URL:', config.apiBaseUrl);
+  // 强制使用本地地址和HTTP协议
+  const forceLocalUrl = 'http://localhost:8016/api';
+  console.log('创建HTTP客户端，强制使用URL:', forceLocalUrl);
   
   // 创建axios实例
   const client = axios.create({
-    baseURL: config.apiBaseUrl,
+    baseURL: forceLocalUrl,
     timeout: 60000, // 增加超时时间到60秒
     headers: {
       'Content-Type': 'application/json',

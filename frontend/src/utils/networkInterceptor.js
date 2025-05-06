@@ -11,6 +11,9 @@ const originalXhrOpen = XMLHttpRequest.prototype.open;
 const fixUrl = (url) => {
   console.log('正在检查URL:', url);
   
+  // 如果不是URL字符串，直接返回
+  if (typeof url !== 'string') return url;
+  
   // 如果是绝对URL
   if (url.startsWith('http')) {
     // 1. 将HTTPS改为HTTP
@@ -22,7 +25,7 @@ const fixUrl = (url) => {
     
     // 2. 替换硬编码的IP地址
     if (fixedUrl.includes('192.168.18.197')) {
-      fixedUrl = fixedUrl.replace('192.168.18.197', window.location.hostname);
+      fixedUrl = fixedUrl.replace('192.168.18.197', 'localhost');
       console.log('替换硬编码IP地址:', fixedUrl);
     }
     
