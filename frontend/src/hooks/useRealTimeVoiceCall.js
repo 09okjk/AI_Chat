@@ -4,10 +4,18 @@ import { getConfig } from '../utils/api';
 import { playPcmChunk, stopAllAudio } from './usePcmAudioPlayer';
 
 // WebSocket 连接基础URL
-const WS_BASE_URL = process.env.REACT_APP_WS_BASE || 
-  (window.location.protocol === 'https:' ? 'wss:' : 'ws:') + 
-  '//' + (process.env.REACT_APP_API_HOST || window.location.hostname) + 
-  ':' + (process.env.REACT_APP_API_PORT || '8016');
+const getWsBaseUrl = () => {
+  if (process.env.REACT_APP_WS_BASE) return process.env.REACT_APP_WS_BASE;
+  
+  // 始终使用ws协议，避免证书问题
+  const protocol = 'ws:';
+  const host = process.env.REACT_APP_API_HOST || window.location.hostname;
+  const port = process.env.REACT_APP_API_PORT || '8016';
+  
+  return `${protocol}//${host}:${port}`;
+};
+
+const WS_BASE_URL = getWsBaseUrl();
 
 /**
  * 实时语音通话钩子
@@ -57,8 +65,8 @@ export default function useRealTimeVoiceCall(appendLog) {
       wsRef.current = null;
     }
 
-    // 创建新的 WebSocket 连接
-    const ws = new WebSocket(`${WS_BASE_URL}/ws`);
+    // 创建新的 WebSocket 连接 - 直接连接根路径，与服务器配置一致
+    const ws = new WebSocket(`${WS_BASE_URL}`);
     wsRef.current = ws;
 
     // 连接打开回调

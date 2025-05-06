@@ -1,6 +1,18 @@
 import axios from 'axios';
 
-const API_BASE = process.env.REACT_APP_API_BASE || 'http://192.168.18.197:8016/api';
+// 确保始终使用HTTP协议，避免证书问题
+const getApiBase = () => {
+  const configuredBase = process.env.REACT_APP_API_BASE;
+  if (configuredBase) return configuredBase;
+  
+  // 默认使用当前主机，确保使用HTTP
+  const protocol = 'http:';
+  const host = window.location.hostname;
+  const port = '8016';
+  return `${protocol}//${host}:${port}/api`;
+};
+
+const API_BASE = getApiBase();
 
 export const chatWithAI = async (payload, onStream) => {
   try {
